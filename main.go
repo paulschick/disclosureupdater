@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
@@ -123,16 +124,95 @@ func (d *DisclosureDownload) Download() error {
 	return nil
 }
 
+func (d *DisclosureDownload) ZipIsPresent() bool {
+	_, err := os.Stat(d.ZipPath)
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+func (d *DisclosureDownload) XmlIsPresent() bool {
+	_, err := os.Stat(d.XmlPath)
+	return !errors.Is(err, os.ErrNotExist)
+}
+
+func (d *DisclosureDownload) Extract() error {
+	arch, err := zip.OpenReader(d.ZipPath)
+	if err != nil {
+		return err
+	}
+
+	if len(arch.File) != 2 {
+		fmt.Printf("Expected 2 files in zip, found %d\n", len(arch.File))
+		return nil
+	}
+
+	var f *zip.File
+
+	for _, file := range arch.File {
+		if strings.HasSuffix(file.Name, ".xml") {
+			f = file
+			break
+		}
+	}
+
+	if f == nil {
+		fmt.Printf("No XML file found in zip\n")
+		return nil
+	}
+
+	filePath := d.XmlPath
+	destFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	if err != nil {
+		return err
+	}
+	fArchive, err := f.Open()
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(destFile, fArchive); err != nil {
+		return err
+	}
+	err = fArchive.Close()
+	if err != nil {
+		return err
+	}
+	err = destFile.Close()
+	if err != nil {
+		return err
+	}
+	err = arch.Close()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(d.ZipPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func DownloadZipsIfNotPresent(downloads []*DisclosureDownload) error {
 	var err error
 	for _, disclosureDownload := range downloads {
-		if _, err = os.Stat(disclosureDownload.ZipPath); errors.Is(err, os.ErrNotExist) {
-			err = disclosureDownload.Download()
-			if err != nil {
-				return err
+		if !disclosureDownload.XmlIsPresent() {
+			if !disclosureDownload.ZipIsPresent() {
+				err = disclosureDownload.Download()
+				if err != nil {
+					return err
+				}
+				err = disclosureDownload.Extract()
+				if err != nil {
+					return err
+				}
+			} else {
+				fmt.Printf("Skipping download of %s\n", disclosureDownload.ZipPath)
+				err = disclosureDownload.Extract()
+				if err != nil {
+					return err
+				}
 			}
 		} else {
-			fmt.Printf("Skipping download of %s\n", disclosureDownload.ZipPath)
+			fmt.Printf("Skipping download of %s\n", disclosureDownload.XmlPath)
 		}
 	}
 	return nil
