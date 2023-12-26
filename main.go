@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -97,15 +99,15 @@ func (d *DisclosureDownload) ToString() string {
 	return fmt.Sprintf("Url: %s\nZip Path: %s\nXML Path: %s\nCSV Path: %s\n", d.Url, d.ZipPath, d.XmlPath, d.CsvPath)
 }
 
-func (d *DisclosureDownload) Download() error {
-	response, err := http.Get(d.Url)
+func DownloadFile(url, outFilePath string) error {
+	response, err := http.Get(url)
 	if err != nil {
 		return err
 	}
 	if response.StatusCode != http.StatusOK {
 		return err
 	}
-	file, err := os.Create(d.ZipPath)
+	file, err := os.Create(outFilePath)
 	if err != nil {
 		return err
 	}
@@ -122,6 +124,10 @@ func (d *DisclosureDownload) Download() error {
 		return err
 	}
 	return nil
+}
+
+func (d *DisclosureDownload) Download() error {
+	return DownloadFile(d.Url, d.ZipPath)
 }
 
 func (d *DisclosureDownload) ZipIsPresent() bool {
@@ -193,29 +199,35 @@ func (d *DisclosureDownload) Extract() error {
 
 func DownloadZipsIfNotPresent(downloads []*DisclosureDownload) error {
 	var err error
+	var wg sync.WaitGroup
+	wg.Add(len(downloads))
 	for _, disclosureDownload := range downloads {
-		if !disclosureDownload.XmlIsPresent() {
-			if !disclosureDownload.ZipIsPresent() {
-				err = disclosureDownload.Download()
-				if err != nil {
-					return err
-				}
-				err = disclosureDownload.Extract()
-				if err != nil {
-					return err
+		go func(d *DisclosureDownload, wg *sync.WaitGroup) {
+			defer wg.Done()
+			if !d.XmlIsPresent() {
+				if !d.ZipIsPresent() {
+					err = d.Download()
+					if err != nil {
+						log.Fatalf("Error downloading %s: %s", d.Url, err)
+					}
+					err = d.Extract()
+					if err != nil {
+						log.Fatalf("Error extracting %s: %s", d.ZipPath, err)
+					}
+				} else {
+					fmt.Printf("Skipping download of %s\n", d.ZipPath)
+					err = d.Extract()
+					if err != nil {
+						log.Fatalf("Error extracting %s: %s", d.ZipPath, err)
+					}
 				}
 			} else {
-				fmt.Printf("Skipping download of %s\n", disclosureDownload.ZipPath)
-				err = disclosureDownload.Extract()
-				if err != nil {
-					return err
-				}
+				fmt.Printf("Skipping download of %s\n", d.XmlPath)
 			}
-		} else {
-			fmt.Printf("Skipping download of %s\n", disclosureDownload.XmlPath)
-		}
+		}(disclosureDownload, &wg)
 	}
-	return nil
+	wg.Wait()
+	return err
 }
 
 func TryCreateDirectories(fp string) (err error) {
@@ -251,4 +263,38 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Testing XML
+	//xmlPath := disclosureDownloads[1].XmlPath
+	//disclosure, err := model.CreateFinancialDisclosure(xmlPath)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Printf("Members: %d\n", len(disclosure.Members))
+	//firstMember := disclosure.Members[0]
+	//fmt.Printf("First Member: %s %s\n", firstMember.First, firstMember.Last)
+	//downloadUrl := firstMember.BuildPdfUrl()
+	//fmt.Printf("Download URL: %s\n", downloadUrl)
+	//fmt.Println("Year: " + strconv.Itoa(firstMember.Year) + " DocId: " + strconv.Itoa(firstMember.DocId))
+	//fmt.Println(firstMember.DocId)
+	//
+	//// Test download pdf
+	//memberPdfName := strconv.Itoa(firstMember.Year) + "." + firstMember.FilingType + "." + firstMember.StateDst +
+	//	"." + strconv.Itoa(firstMember.DocId) + ".pdf"
+	//fmt.Println(memberPdfName)
+	//memberPdfName2 := firstMember.BuildPdfFileName()
+	//fmt.Println(memberPdfName2)
+	//
+	//pdfPath := path.Join(config.DataFolder, "disclosures/"+memberPdfName2)
+	//fmt.Println(pdfPath)
+	//err = TryCreateDirectories(path.Dir(pdfPath))
+	//if err != nil {
+	//	panic(err)
+	//}
+	//// TODO - only download if transactions disclosure
+	//// Also, figure out if I can do multiple downloads at once with goroutines
+	//err = DownloadFile(downloadUrl, pdfPath)
+	//if err != nil {
+	//	panic(err)
+	//}
 }
