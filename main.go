@@ -2,9 +2,11 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/joho/godotenv"
+	"github.com/paulschick/disclosureupdater/model"
 	"io"
 	"log"
 	"net/http"
@@ -97,6 +99,12 @@ func NewDisclosureDownload(url, baseFolder string) *DisclosureDownload {
 
 func (d *DisclosureDownload) ToString() string {
 	return fmt.Sprintf("Url: %s\nZip Path: %s\nXML Path: %s\nCSV Path: %s\n", d.Url, d.ZipPath, d.XmlPath, d.CsvPath)
+}
+
+type Downloadable struct {
+	url   string
+	bytes []byte
+	fp    string
 }
 
 func DownloadFile(url, outFilePath string) error {
@@ -230,11 +238,128 @@ func DownloadZipsIfNotPresent(downloads []*DisclosureDownload) error {
 	return err
 }
 
+func CreatePdfDownloadDirectory(dataFolder string) error {
+	return TryCreateDirectories(path.Join(dataFolder, model.BasePdfDir))
+}
+
+// GetTransactionReportMembers returns a slice of members that have transaction reports
+// This is the list of Members for which to download PDF files
+func GetTransactionReportMembers(downloads []*DisclosureDownload, dataFolder string) ([]*model.Member, error) {
+	downloadMembers := make([]*model.Member, 0)
+	var err error
+	for _, disclosureDownload := range downloads {
+		xmlPath := disclosureDownload.XmlPath
+		var disclosure *model.FinancialDisclosure
+		disclosure, err = model.CreateFinancialDisclosure(xmlPath)
+		if err != nil {
+			return downloadMembers, err
+		}
+		for _, member := range disclosure.Members {
+			if member.ShouldDownload(dataFolder) {
+				downloadMembers = append(downloadMembers, member)
+			}
+		}
+	}
+	return downloadMembers, err
+}
+
+func DownloadPdfsIfNotPresent(downloads []*DisclosureDownload, dataFolder string) error {
+	return nil
+}
+
 func TryCreateDirectories(fp string) (err error) {
 	if _, err = os.Stat(fp); errors.Is(err, os.ErrNotExist) {
 		err = os.MkdirAll(fp, os.ModePerm)
 	}
 	return err
+}
+
+func DownloadFileBytes(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		closeErr := resp.Body.Close()
+		if closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(fmt.Sprintf("bad status: %s", resp.Status))
+	}
+	var data bytes.Buffer
+	_, err = io.Copy(&data, resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return data.Bytes(), nil
+}
+
+// DownloadMultipleFiles
+// source: https://medium.com/@dhanushgopinath/concurrent-http-downloads-using-go-32fecfa1ed27
+// TODO: Need to write the files, so match urls with file paths
+func DownloadMultipleFiles(urls []string) ([][]byte, error) {
+	done := make(chan []byte, len(urls))
+	errs := make(chan error, len(urls))
+	for _, url := range urls {
+		go func(url string) {
+			b, err := DownloadFileBytes(url)
+			if err != nil {
+				errs <- err
+				done <- nil
+				return
+			}
+			done <- b
+			errs <- nil
+		}(url)
+	}
+	bytesArray := make([][]byte, 0)
+	var errStr string
+	for i := 0; i < len(urls); i++ {
+		bytesArray = append(bytesArray, <-done)
+		if err := <-errs; err != nil {
+			errStr = errStr + " " + err.Error()
+		}
+	}
+	var err error
+	if errStr != "" {
+		err = errors.New(errStr)
+	}
+	return bytesArray, err
+}
+
+func (d *Downloadable) UpdateBytes(bytes []byte) {
+	d.bytes = bytes
+}
+
+func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
+	done := make(chan *Downloadable, len(values))
+	errs := make(chan error, len(values))
+	for _, value := range values {
+		go func(value *Downloadable) {
+			b, err := DownloadFileBytes(value.url)
+			if err != nil {
+				errs <- err
+				done <- nil
+				return
+			}
+			value.UpdateBytes(b)
+			done <- value
+			errs <- nil
+		}(value)
+	}
+	var errStr string
+	for i := 0; i < len(values); i++ {
+		if err := <-errs; err != nil {
+			errStr = errStr + " " + err.Error()
+		}
+	}
+	var err error
+	if errStr != "" {
+		err = errors.New(errStr)
+	}
+	return values, err
 }
 
 func main() {
@@ -264,37 +389,36 @@ func main() {
 		panic(err)
 	}
 
-	// Testing XML
-	//xmlPath := disclosureDownloads[1].XmlPath
-	//disclosure, err := model.CreateFinancialDisclosure(xmlPath)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//fmt.Printf("Members: %d\n", len(disclosure.Members))
-	//firstMember := disclosure.Members[0]
-	//fmt.Printf("First Member: %s %s\n", firstMember.First, firstMember.Last)
-	//downloadUrl := firstMember.BuildPdfUrl()
-	//fmt.Printf("Download URL: %s\n", downloadUrl)
-	//fmt.Println("Year: " + strconv.Itoa(firstMember.Year) + " DocId: " + strconv.Itoa(firstMember.DocId))
-	//fmt.Println(firstMember.DocId)
-	//
-	//// Test download pdf
-	//memberPdfName := strconv.Itoa(firstMember.Year) + "." + firstMember.FilingType + "." + firstMember.StateDst +
-	//	"." + strconv.Itoa(firstMember.DocId) + ".pdf"
-	//fmt.Println(memberPdfName)
-	//memberPdfName2 := firstMember.BuildPdfFileName()
-	//fmt.Println(memberPdfName2)
-	//
-	//pdfPath := path.Join(config.DataFolder, "disclosures/"+memberPdfName2)
-	//fmt.Println(pdfPath)
-	//err = TryCreateDirectories(path.Dir(pdfPath))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//// TODO - only download if transactions disclosure
-	//// Also, figure out if I can do multiple downloads at once with goroutines
-	//err = DownloadFile(downloadUrl, pdfPath)
-	//if err != nil {
-	//	panic(err)
-	//}
+	err = CreatePdfDownloadDirectory(config.DataFolder)
+	if err != nil {
+		panic(err)
+	}
+	var downloadMembers []*model.Member
+	downloadMembers, err = GetTransactionReportMembers(disclosureDownloads, config.DataFolder)
+	if err != nil {
+		panic(err)
+	}
+	// take slice of 10
+	downloadMembers = downloadMembers[:10]
+	fmt.Printf("Downloading %d PDFs\n", len(downloadMembers))
+
+	downloadables := make([]*Downloadable, len(downloadMembers))
+	for i, member := range downloadMembers {
+		fmt.Printf("Downloading %s\n", member.BuildPdfUrl())
+		downloadables[i] = &Downloadable{
+			url:   member.BuildPdfUrl(),
+			bytes: nil,
+			fp:    member.BuildPdfFilePath(config.DataFolder),
+		}
+	}
+	downloadables, err = DownloadMultiple(downloadables)
+	if err != nil {
+		log.Fatalf("Error downloading PDFs: %s", err)
+	}
+	for _, download := range downloadables {
+		err = os.WriteFile(download.fp, download.bytes, 0644)
+		if err != nil {
+			log.Fatalf("Error writing PDF: %s", err)
+		}
+	}
 }

@@ -5,9 +5,11 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const BasePdfUrl = "https://disclosures-clerk.house.gov/public_disc/"
+const BasePdfDir = "disclosures/"
 
 type Member struct {
 	XMLName    xml.Name `xml:"Member"`
@@ -23,8 +25,8 @@ type Member struct {
 }
 
 type FinancialDisclosure struct {
-	XMLName xml.Name `xml:"FinancialDisclosure"`
-	Members []Member `xml:"Member"`
+	XMLName xml.Name  `xml:"FinancialDisclosure"`
+	Members []*Member `xml:"Member"`
 }
 
 func CreateFinancialDisclosure(xmlPath string) (*FinancialDisclosure, error) {
@@ -49,7 +51,7 @@ func CreateFinancialDisclosure(xmlPath string) (*FinancialDisclosure, error) {
 	return &disclosure, nil
 }
 
-func (m Member) BuildPdfUrl() string {
+func (m *Member) BuildPdfUrl() string {
 	if m.FilingType == "P" {
 		return BasePdfUrl + "ptr-pdfs/" + strconv.Itoa(m.Year) + "/" + strconv.Itoa(m.DocId) + ".pdf"
 	} else {
@@ -57,11 +59,31 @@ func (m Member) BuildPdfUrl() string {
 	}
 }
 
-func (m Member) BuildPdfFileName() string {
+func (m *Member) BuildPdfFileName() string {
 	filingExtension := ".financial-pdfs"
 	if m.FilingType == "P" {
 		filingExtension = ".ptr-pdfs"
 	}
+	first := strings.Replace(m.First, " ", "_", -1)
+	first = strings.Replace(first, ".", "", -1)
+	last := strings.Replace(m.Last, " ", "_", -1)
+	last = strings.Replace(last, ".", "", -1)
 	return strconv.Itoa(m.Year) + filingExtension + "." + m.StateDst +
-		"." + m.Last + "." + m.First + "." + strconv.Itoa(m.DocId) + ".pdf"
+		"." + last + "." + first + "." + strconv.Itoa(m.DocId) + ".pdf"
+}
+
+func (m *Member) BuildPdfFilePath(dataFolder string) string {
+	return dataFolder + "/" + BasePdfDir + m.BuildPdfFileName()
+}
+
+func (m *Member) PdfFileExists(dataFolder string) bool {
+	_, err := os.Stat(m.BuildPdfFilePath(dataFolder))
+	return !os.IsNotExist(err)
+}
+
+func (m *Member) ShouldDownload(dataFolder string) bool {
+	if m.FilingType == "P" && !m.PdfFileExists(dataFolder) {
+		return true
+	}
+	return false
 }
