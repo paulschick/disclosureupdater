@@ -379,40 +379,6 @@ func S3Client(configuration *Config) (*s3.Client, error) {
 	return s3.NewFromConfig(cfg), nil
 }
 
-func testUpload(configuration *Config, client *s3.Client) {
-	disclosureDir := path.Join(configuration.DataFolder, model.BasePdfDir)
-	files, err := os.ReadDir(disclosureDir)
-	if err != nil {
-		panic(err)
-	}
-
-	//test upload with 5 files
-	//ONLY DO ONCE PRIOR TO READING FROM BUCKET
-	for i := 0; i < 5; i++ {
-		file := files[i]
-		filePath := path.Join(disclosureDir, file.Name())
-		fmt.Printf("Uploading %s\n", filePath)
-		f, err := os.Open(filePath)
-		if err != nil {
-			log.Fatalf("failed to open file %q, %v", filePath, err)
-		}
-
-		_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-			Bucket: aws.String(configuration.S3Bucket),
-			Key:    aws.String(file.Name()),
-			Body:   f,
-		})
-		if err != nil {
-			log.Fatalf("failed to upload file, %v", err)
-		}
-
-		err = f.Close()
-		if err != nil {
-			log.Fatalf("failed to close file %q, %v", filePath, err)
-		}
-	}
-}
-
 func ListS3Objects(configuration *Config, client *s3.Client) ([]types.Object, error) {
 	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
 		Bucket: aws.String(configuration.S3Bucket),
@@ -424,6 +390,31 @@ func ListS3Objects(configuration *Config, client *s3.Client) ([]types.Object, er
 		contents = output.Contents
 	}
 	return contents, err
+}
+
+func S3UploadFile(fp, bucket string, client *s3.Client) error {
+	f, err := os.Open(fp)
+	if err != nil {
+		log.Printf("failed to open file %q, %v", fp, err)
+		return errors.New(fmt.Sprintf("failed to open file %q, %v", fp, err))
+	}
+	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(path.Base(fp)),
+		Body:   f,
+	})
+
+	if err != nil {
+		log.Printf("failed to upload file, %v", err)
+		return errors.New(fmt.Sprintf("failed to upload file, %v", err))
+	}
+
+	err = f.Close()
+	if err != nil {
+		log.Printf("failed to close file %q, %v", fp, err)
+		return errors.New(fmt.Sprintf("failed to close file %q, %v", fp, err))
+	}
+	return nil
 }
 
 // S3
@@ -450,36 +441,14 @@ func S3(configuration *Config) {
 	if err != nil {
 		panic(err)
 	}
-	uploadedCount := 0
 	for _, file := range files {
 		if !slices.Contains(uploadedObjects, file.Name()) {
-			if uploadedCount < 5 {
-				fmt.Printf("Uploading %s\n", file.Name())
-				filePath := path.Join(disclosureDir, file.Name())
-				fmt.Printf("Uploading %s\n", filePath)
-				f, err := os.Open(filePath)
-				if err != nil {
-					log.Fatalf("failed to open file %q, %v", filePath, err)
-				}
-
-				_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-					Bucket: aws.String(configuration.S3Bucket),
-					Key:    aws.String(file.Name()),
-					Body:   f,
-				})
-				if err != nil {
-					log.Fatalf("failed to upload file, %v", err)
-				}
-
-				err = f.Close()
-				if err != nil {
-					log.Fatalf("failed to close file %q, %v", filePath, err)
-				}
-
-				uploadedCount++
-			} else {
-				fmt.Printf("Skipping %s\n", file.Name())
-				break
+			fmt.Printf("Uploading %s\n", file.Name())
+			filePath := path.Join(disclosureDir, file.Name())
+			fmt.Printf("Uploading %s\n", filePath)
+			err = S3UploadFile(filePath, configuration.S3Bucket, client)
+			if err != nil {
+				log.Fatalf("failed to upload file, %v", err)
 			}
 		}
 	}
