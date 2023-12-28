@@ -5,3 +5,4 @@ output
 .env
 main
 *.exe
+s3_objects.txt

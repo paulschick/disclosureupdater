@@ -3,21 +3,15 @@ package main
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/joho/godotenv"
 	"github.com/paulschick/disclosureupdater/model"
+	"github.com/paulschick/disclosureupdater/s3client"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,58 +26,6 @@ const (
 
 func GenerateZipUrlForYear(year int) string {
 	return strings.Replace(ZipUrlTemplate, "{YEAR}", strconv.Itoa(year), 1)
-}
-
-type Config struct {
-	DbPath     string
-	DataFolder string
-	S3Bucket   string
-	S3Hostname string
-	S3Region   string
-}
-
-func Configure() *Config {
-	err := godotenv.Load("./.env")
-	if err != nil {
-		panic(err)
-	}
-	return &Config{
-		DbPath: func() string {
-			dbPath := os.Getenv("DB_PATH")
-			if dbPath == "" {
-				return "file::memory:?cache=shared"
-			}
-			return dbPath
-		}(),
-		DataFolder: func() string {
-			dataFolder := os.Getenv("DATA_FOLDER")
-			if dataFolder == "" {
-				return "./data"
-			}
-			return dataFolder
-		}(),
-		S3Bucket: func() string {
-			s3Bucket := os.Getenv("S3_BUCKET")
-			if s3Bucket == "" {
-				return "house-ptr-202312-2"
-			}
-			return s3Bucket
-		}(),
-		S3Hostname: func() string {
-			s3Hostname := os.Getenv("S3_HOSTNAME")
-			if s3Hostname == "" {
-				return "https://ewr1.vultrobjects.com"
-			}
-			return s3Hostname
-		}(),
-		S3Region: func() string {
-			s3Region := os.Getenv("S3_REGION")
-			if s3Region == "" {
-				return "us-east-1"
-			}
-			return s3Region
-		}(),
-	}
 }
 
 func CurrentYear() int {
@@ -358,160 +300,83 @@ func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
 	return values, err
 }
 
-func S3Client(configuration *Config) (*s3.Client, error) {
-	endpoint := aws.Endpoint{
-		URL: configuration.S3Hostname,
-	}
-	endpointResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if service == s3.ServiceID && region == configuration.S3Region {
-			return endpoint, nil
-		}
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
-		config.WithSharedConfigProfile("default"),
-		config.WithRegion(configuration.S3Region),
-		config.WithEndpointResolverWithOptions(endpointResolver))
-	if err != nil {
-		return nil, err
-	}
-	return s3.NewFromConfig(cfg), nil
-}
-
-func ListS3Objects(configuration *Config, client *s3.Client) ([]types.Object, error) {
-	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-		Bucket: aws.String(configuration.S3Bucket),
-	})
-	var contents []types.Object
-	if err != nil {
-		return nil, err
-	} else {
-		contents = output.Contents
-	}
-	return contents, err
-}
-
-func S3UploadFile(fp, bucket string, client *s3.Client) error {
-	f, err := os.Open(fp)
-	if err != nil {
-		log.Printf("failed to open file %q, %v", fp, err)
-		return errors.New(fmt.Sprintf("failed to open file %q, %v", fp, err))
-	}
-	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(path.Base(fp)),
-		Body:   f,
-	})
-
-	if err != nil {
-		log.Printf("failed to upload file, %v", err)
-		return errors.New(fmt.Sprintf("failed to upload file, %v", err))
-	}
-
-	err = f.Close()
-	if err != nil {
-		log.Printf("failed to close file %q, %v", fp, err)
-		return errors.New(fmt.Sprintf("failed to close file %q, %v", fp, err))
-	}
-	return nil
-}
-
-// S3
-// https://dev.to/aws-builders/get-objects-from-aws-s3-bucket-with-golang-2mne
-// Uploads files to S3 bucket that are not present
-func S3(configuration *Config) {
-	client, err := S3Client(configuration)
-	if err != nil {
-		log.Fatalf("failed to create s3 client, %v", err)
-	}
-	objects, err := ListS3Objects(configuration, client)
-	if err != nil {
-		log.Fatalf("failed to list objects, %v", err)
-	}
-	fmt.Printf("Found %d objects\n", len(objects))
-	var uploadedObjects []string
-	for _, object := range objects {
-		fmt.Printf("Found object %s\n", *object.Key)
-		uploadedObjects = append(uploadedObjects, *object.Key)
-	}
-
-	disclosureDir := path.Join(configuration.DataFolder, model.BasePdfDir)
-	files, err := os.ReadDir(disclosureDir)
-	if err != nil {
-		panic(err)
-	}
-	for _, file := range files {
-		if !slices.Contains(uploadedObjects, file.Name()) {
-			fmt.Printf("Uploading %s\n", file.Name())
-			filePath := path.Join(disclosureDir, file.Name())
-			fmt.Printf("Uploading %s\n", filePath)
-			err = S3UploadFile(filePath, configuration.S3Bucket, client)
-			if err != nil {
-				log.Fatalf("failed to upload file, %v", err)
-			}
-		}
-	}
-
-}
-
 func main() {
 	fmt.Println("House of Representatives Data Updater")
-	configuration := Configure()
-	fmt.Printf("DB Path: %s\n", configuration.DbPath)
-	fmt.Printf("Data Folder: %s\n", configuration.DataFolder)
+	configuration := model.Configure()
+	// TODO add to CLI program
+	//
+	//// Create directory if it does not exist, including subdirs
+	//err := TryCreateDirectories(configuration.DataFolder)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//downloadUrls := GenerateAllZipUrls()
+	//disclosureDownloads := make([]*DisclosureDownload, len(downloadUrls))
+	//
+	//fmt.Println(downloadUrls)
+	//
+	//for i := 0; i < len(downloadUrls); i++ {
+	//	disclosureDownloads[i] = NewDisclosureDownload(downloadUrls[i], configuration.DataFolder)
+	//	fmt.Println(disclosureDownloads[i].ToString())
+	//}
+	//
+	//err = DownloadZipsIfNotPresent(disclosureDownloads)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//err = CreatePdfDownloadDirectory(configuration.DataFolder)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//var downloadMembers []*model.Member
+	//downloadMembers, err = GetTransactionReportMembers(disclosureDownloads, configuration.DataFolder)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Printf("Downloading %d PDFs\n", len(downloadMembers))
+	//
+	//downloadables := make([]*Downloadable, len(downloadMembers))
+	//for i, member := range downloadMembers {
+	//	fmt.Printf("Downloading %s\n", member.BuildPdfUrl())
+	//	downloadables[i] = &Downloadable{
+	//		url:   member.BuildPdfUrl(),
+	//		bytes: nil,
+	//		fp:    member.BuildPdfFilePath(configuration.DataFolder),
+	//	}
+	//}
+	//downloadables, err = DownloadMultiple(downloadables)
+	//if err != nil {
+	//	log.Fatalf("Error downloading PDFs: %s", err)
+	//}
+	//for _, download := range downloadables {
+	//	err = os.WriteFile(download.fp, download.bytes, 0644)
+	//	if err != nil {
+	//		log.Fatalf("Error writing PDF: %s", err)
+	//	}
+	//}
+	// TODO end add to CLI program
 
-	// Create directory if it does not exist, including subdirs
-	err := TryCreateDirectories(configuration.DataFolder)
+	// TODO deprecate this section
+	//err = S3(configuration)
+	//if err != nil {
+	//	log.Fatalf("Error uploading to S3: %s", err)
+	//} else {
+	//	fmt.Println("Successfully uploaded to S3")
+	//}
+	// TODO end deprecation section
+
+	// TODO S3 service testing
+	s3Service, err := s3client.NewS3Service(configuration)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error creating S3 service: %s", err)
 	}
-
-	downloadUrls := GenerateAllZipUrls()
-	disclosureDownloads := make([]*DisclosureDownload, len(downloadUrls))
-
-	fmt.Println(downloadUrls)
-
-	for i := 0; i < len(downloadUrls); i++ {
-		disclosureDownloads[i] = NewDisclosureDownload(downloadUrls[i], configuration.DataFolder)
-		fmt.Println(disclosureDownloads[i].ToString())
-	}
-
-	err = DownloadZipsIfNotPresent(disclosureDownloads)
+	err = s3Service.WriteBucketObjects()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error writing bucket objects: %s", err)
+	} else {
+		fmt.Println("Successfully wrote bucket objects")
 	}
-
-	err = CreatePdfDownloadDirectory(configuration.DataFolder)
-	if err != nil {
-		panic(err)
-	}
-	var downloadMembers []*model.Member
-	downloadMembers, err = GetTransactionReportMembers(disclosureDownloads, configuration.DataFolder)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Downloading %d PDFs\n", len(downloadMembers))
-
-	downloadables := make([]*Downloadable, len(downloadMembers))
-	for i, member := range downloadMembers {
-		fmt.Printf("Downloading %s\n", member.BuildPdfUrl())
-		downloadables[i] = &Downloadable{
-			url:   member.BuildPdfUrl(),
-			bytes: nil,
-			fp:    member.BuildPdfFilePath(configuration.DataFolder),
-		}
-	}
-	downloadables, err = DownloadMultiple(downloadables)
-	if err != nil {
-		log.Fatalf("Error downloading PDFs: %s", err)
-	}
-	for _, download := range downloadables {
-		err = os.WriteFile(download.fp, download.bytes, 0644)
-		if err != nil {
-			log.Fatalf("Error writing PDF: %s", err)
-		}
-	}
-
-	S3(configuration)
+	// TODO end S3 service testing
 }
