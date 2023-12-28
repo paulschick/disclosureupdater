@@ -3,8 +3,12 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/joho/godotenv"
 	"github.com/paulschick/disclosureupdater/model"
 	"io"
@@ -31,6 +35,8 @@ func GenerateZipUrlForYear(year int) string {
 type Config struct {
 	DbPath     string
 	DataFolder string
+	S3Bucket   string
+	S3Hostname string
 }
 
 func Configure() *Config {
@@ -52,6 +58,20 @@ func Configure() *Config {
 				return "./data"
 			}
 			return dataFolder
+		}(),
+		S3Bucket: func() string {
+			s3Bucket := os.Getenv("S3_BUCKET")
+			if s3Bucket == "" {
+				return "house-ptr-202312-2"
+			}
+			return s3Bucket
+		}(),
+		S3Hostname: func() string {
+			s3Hostname := os.Getenv("S3_HOSTNAME")
+			if s3Hostname == "" {
+				return "https://ewr1.vultrobjects.com"
+			}
+			return s3Hostname
 		}(),
 	}
 }
@@ -328,14 +348,42 @@ func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
 	return values, err
 }
 
+// S3
+// https://dev.to/aws-builders/get-objects-from-aws-s3-bucket-with-golang-2mne
+func S3(configuration *Config) {
+	endpoint := aws.Endpoint{
+		URL: configuration.S3Hostname,
+	}
+	endpointResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if service == s3.ServiceID && region == "us-east-1" {
+			return endpoint, nil
+		}
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+		config.WithSharedConfigProfile("default"),
+		config.WithRegion("us-east-1"),
+		config.WithEndpointResolverWithOptions(endpointResolver))
+	if err != nil {
+		panic(err)
+	}
+	client := s3.NewFromConfig(cfg)
+	output, err := client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(output)
+}
+
 func main() {
 	fmt.Println("House of Representatives Data Updater")
-	config := Configure()
-	fmt.Printf("DB Path: %s\n", config.DbPath)
-	fmt.Printf("Data Folder: %s\n", config.DataFolder)
+	configuration := Configure()
+	fmt.Printf("DB Path: %s\n", configuration.DbPath)
+	fmt.Printf("Data Folder: %s\n", configuration.DataFolder)
 
 	// Create directory if it does not exist, including subdirs
-	err := TryCreateDirectories(config.DataFolder)
+	err := TryCreateDirectories(configuration.DataFolder)
 	if err != nil {
 		panic(err)
 	}
@@ -346,7 +394,7 @@ func main() {
 	fmt.Println(downloadUrls)
 
 	for i := 0; i < len(downloadUrls); i++ {
-		disclosureDownloads[i] = NewDisclosureDownload(downloadUrls[i], config.DataFolder)
+		disclosureDownloads[i] = NewDisclosureDownload(downloadUrls[i], configuration.DataFolder)
 		fmt.Println(disclosureDownloads[i].ToString())
 	}
 
@@ -355,12 +403,12 @@ func main() {
 		panic(err)
 	}
 
-	err = CreatePdfDownloadDirectory(config.DataFolder)
+	err = CreatePdfDownloadDirectory(configuration.DataFolder)
 	if err != nil {
 		panic(err)
 	}
 	var downloadMembers []*model.Member
-	downloadMembers, err = GetTransactionReportMembers(disclosureDownloads, config.DataFolder)
+	downloadMembers, err = GetTransactionReportMembers(disclosureDownloads, configuration.DataFolder)
 	if err != nil {
 		panic(err)
 	}
@@ -372,7 +420,7 @@ func main() {
 		downloadables[i] = &Downloadable{
 			url:   member.BuildPdfUrl(),
 			bytes: nil,
-			fp:    member.BuildPdfFilePath(config.DataFolder),
+			fp:    member.BuildPdfFilePath(configuration.DataFolder),
 		}
 	}
 	downloadables, err = DownloadMultiple(downloadables)
@@ -385,4 +433,6 @@ func main() {
 			log.Fatalf("Error writing PDF: %s", err)
 		}
 	}
+
+	S3(configuration)
 }
