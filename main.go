@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/joho/godotenv"
 	"github.com/paulschick/disclosureupdater/model"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +39,7 @@ type Config struct {
 	DataFolder string
 	S3Bucket   string
 	S3Hostname string
+	S3Region   string
 }
 
 func Configure() *Config {
@@ -72,6 +75,13 @@ func Configure() *Config {
 				return "https://ewr1.vultrobjects.com"
 			}
 			return s3Hostname
+		}(),
+		S3Region: func() string {
+			s3Region := os.Getenv("S3_REGION")
+			if s3Region == "" {
+				return "us-east-1"
+			}
+			return s3Region
 		}(),
 	}
 }
@@ -348,14 +358,12 @@ func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
 	return values, err
 }
 
-// S3
-// https://dev.to/aws-builders/get-objects-from-aws-s3-bucket-with-golang-2mne
-func S3(configuration *Config) {
+func S3Client(configuration *Config) (*s3.Client, error) {
 	endpoint := aws.Endpoint{
 		URL: configuration.S3Hostname,
 	}
 	endpointResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if service == s3.ServiceID && region == "us-east-1" {
+		if service == s3.ServiceID && region == configuration.S3Region {
 			return endpoint, nil
 		}
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
@@ -363,17 +371,119 @@ func S3(configuration *Config) {
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
 		config.WithSharedConfigProfile("default"),
-		config.WithRegion("us-east-1"),
+		config.WithRegion(configuration.S3Region),
 		config.WithEndpointResolverWithOptions(endpointResolver))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	client := s3.NewFromConfig(cfg)
-	output, err := client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
+	return s3.NewFromConfig(cfg), nil
+}
+
+func testUpload(configuration *Config, client *s3.Client) {
+	disclosureDir := path.Join(configuration.DataFolder, model.BasePdfDir)
+	files, err := os.ReadDir(disclosureDir)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(output)
+
+	//test upload with 5 files
+	//ONLY DO ONCE PRIOR TO READING FROM BUCKET
+	for i := 0; i < 5; i++ {
+		file := files[i]
+		filePath := path.Join(disclosureDir, file.Name())
+		fmt.Printf("Uploading %s\n", filePath)
+		f, err := os.Open(filePath)
+		if err != nil {
+			log.Fatalf("failed to open file %q, %v", filePath, err)
+		}
+
+		_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
+			Bucket: aws.String(configuration.S3Bucket),
+			Key:    aws.String(file.Name()),
+			Body:   f,
+		})
+		if err != nil {
+			log.Fatalf("failed to upload file, %v", err)
+		}
+
+		err = f.Close()
+		if err != nil {
+			log.Fatalf("failed to close file %q, %v", filePath, err)
+		}
+	}
+}
+
+func ListS3Objects(configuration *Config, client *s3.Client) ([]types.Object, error) {
+	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+		Bucket: aws.String(configuration.S3Bucket),
+	})
+	var contents []types.Object
+	if err != nil {
+		return nil, err
+	} else {
+		contents = output.Contents
+	}
+	return contents, err
+}
+
+// S3
+// https://dev.to/aws-builders/get-objects-from-aws-s3-bucket-with-golang-2mne
+// Uploads files to S3 bucket that are not present
+func S3(configuration *Config) {
+	client, err := S3Client(configuration)
+	if err != nil {
+		log.Fatalf("failed to create s3 client, %v", err)
+	}
+	objects, err := ListS3Objects(configuration, client)
+	if err != nil {
+		log.Fatalf("failed to list objects, %v", err)
+	}
+	fmt.Printf("Found %d objects\n", len(objects))
+	var uploadedObjects []string
+	for _, object := range objects {
+		fmt.Printf("Found object %s\n", *object.Key)
+		uploadedObjects = append(uploadedObjects, *object.Key)
+	}
+
+	disclosureDir := path.Join(configuration.DataFolder, model.BasePdfDir)
+	files, err := os.ReadDir(disclosureDir)
+	if err != nil {
+		panic(err)
+	}
+	uploadedCount := 0
+	for _, file := range files {
+		if !slices.Contains(uploadedObjects, file.Name()) {
+			if uploadedCount < 5 {
+				fmt.Printf("Uploading %s\n", file.Name())
+				filePath := path.Join(disclosureDir, file.Name())
+				fmt.Printf("Uploading %s\n", filePath)
+				f, err := os.Open(filePath)
+				if err != nil {
+					log.Fatalf("failed to open file %q, %v", filePath, err)
+				}
+
+				_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
+					Bucket: aws.String(configuration.S3Bucket),
+					Key:    aws.String(file.Name()),
+					Body:   f,
+				})
+				if err != nil {
+					log.Fatalf("failed to upload file, %v", err)
+				}
+
+				err = f.Close()
+				if err != nil {
+					log.Fatalf("failed to close file %q, %v", filePath, err)
+				}
+
+				uploadedCount++
+			} else {
+				fmt.Printf("Skipping %s\n", file.Name())
+				break
+			}
+		}
+	}
+
 }
 
 func main() {
