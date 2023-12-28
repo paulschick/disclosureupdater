@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	ZipUrlTemplate = "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/{YEAR}FD.zip"
-	MinYear        = 2008
+	ZipUrlTemplate   = "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/{YEAR}FD.zip"
+	MinYear          = 2008
+	RequestPerSecond = 100
 )
 
 func GenerateZipUrlForYear(year int) string {
@@ -263,10 +264,6 @@ func GetTransactionReportMembers(downloads []*DisclosureDownload, dataFolder str
 	return downloadMembers, err
 }
 
-func DownloadPdfsIfNotPresent(downloads []*DisclosureDownload, dataFolder string) error {
-	return nil
-}
-
 func TryCreateDirectories(fp string) (err error) {
 	if _, err = os.Stat(fp); errors.Is(err, os.ErrNotExist) {
 		err = os.MkdirAll(fp, os.ModePerm)
@@ -296,39 +293,6 @@ func DownloadFileBytes(url string) ([]byte, error) {
 	return data.Bytes(), nil
 }
 
-// DownloadMultipleFiles
-// source: https://medium.com/@dhanushgopinath/concurrent-http-downloads-using-go-32fecfa1ed27
-// TODO: Need to write the files, so match urls with file paths
-func DownloadMultipleFiles(urls []string) ([][]byte, error) {
-	done := make(chan []byte, len(urls))
-	errs := make(chan error, len(urls))
-	for _, url := range urls {
-		go func(url string) {
-			b, err := DownloadFileBytes(url)
-			if err != nil {
-				errs <- err
-				done <- nil
-				return
-			}
-			done <- b
-			errs <- nil
-		}(url)
-	}
-	bytesArray := make([][]byte, 0)
-	var errStr string
-	for i := 0; i < len(urls); i++ {
-		bytesArray = append(bytesArray, <-done)
-		if err := <-errs; err != nil {
-			errStr = errStr + " " + err.Error()
-		}
-	}
-	var err error
-	if errStr != "" {
-		err = errors.New(errStr)
-	}
-	return bytesArray, err
-}
-
 func (d *Downloadable) UpdateBytes(bytes []byte) {
 	d.bytes = bytes
 }
@@ -336,8 +300,10 @@ func (d *Downloadable) UpdateBytes(bytes []byte) {
 func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
 	done := make(chan *Downloadable, len(values))
 	errs := make(chan error, len(values))
+	throttle := time.Tick(time.Second / RequestPerSecond)
 	for _, value := range values {
 		go func(value *Downloadable) {
+			<-throttle
 			b, err := DownloadFileBytes(value.url)
 			if err != nil {
 				errs <- err
@@ -398,8 +364,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// take slice of 10
-	downloadMembers = downloadMembers[:10]
 	fmt.Printf("Downloading %d PDFs\n", len(downloadMembers))
 
 	downloadables := make([]*Downloadable, len(downloadMembers))
