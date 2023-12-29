@@ -6,3 +6,4 @@ output
 main
 *.exe
 s3_objects.txt
+config.*
