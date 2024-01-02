@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/urfave/cli/v2"
 	"log"
@@ -36,69 +37,60 @@ func main() {
 				},
 			},
 			{
-				Name:    "configure",
-				Aliases: []string{"conf"},
-				Usage:   "Initialize environment configuration",
-				UsageText: "Either load from an environment file, or write a new environment file " +
-					"from passed command line flags",
-				Subcommands: []*cli.Command{
-					{
-						Name:    "load",
-						Aliases: []string{"l"},
-						Usage:   "Load environment configuration from file",
-						Action: func(cCtx *cli.Context) error {
-							log.Println("Loading environment configuration from file")
-							return nil
-						},
+				Name:      "configure",
+				Aliases:   []string{"conf"},
+				Usage:     "Initialize environment configuration",
+				UsageText: "Write S3 configuration values to file",
+				Action: func(cCtx *cli.Context) error {
+					s3Profile := config.S3ProfileFromCtx(cCtx)
+					err := config.UpdateS3Config(s3Profile, commonDirs)
+					if err != nil {
+						return err
+					}
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "s3-bucket",
+						Aliases: []string{"b"},
+						Usage:   "S3 bucket",
+						EnvVars: []string{"S3_BUCKET"},
 					},
-					{
-						Name:    "write",
-						Aliases: []string{"w"},
-						Usage:   "Write environment configuration to file",
-						Action: func(cCtx *cli.Context) error {
-							s3Profile := config.S3ProfileFromCtx(cCtx)
-							err := config.UpdateS3Config(s3Profile, commonDirs)
-							if err != nil {
-								return err
-							}
-							return nil
-						},
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:    "s3-bucket",
-								Aliases: []string{"b"},
-								Usage:   "S3 bucket",
-								EnvVars: []string{"S3_BUCKET"},
-							},
-							&cli.StringFlag{
-								Name:    "s3-region",
-								Aliases: []string{"r"},
-								Usage:   "S3 region",
-								EnvVars: []string{"S3_REGION"},
-							},
-							&cli.StringFlag{
-								Name:    "s3-hostname",
-								Aliases: []string{"e"},
-								Usage:   "S3 hostname",
-								EnvVars: []string{"S3_HOSTNAME"},
-							},
-							&cli.StringFlag{
-								Name:    "s3-api-key",
-								Aliases: []string{"k"},
-								Usage:   "S3 API key",
-								EnvVars: []string{"S3_API_KEY"},
-							},
-							&cli.StringFlag{
-								Name:    "s3-secret-key",
-								Aliases: []string{"s"},
-								Usage:   "S3 secret key",
-								EnvVars: []string{"S3_SECRET_KEY"},
-							},
-						},
+					&cli.StringFlag{
+						Name:    "s3-region",
+						Aliases: []string{"r"},
+						Usage:   "S3 region",
+						EnvVars: []string{"S3_REGION"},
+					},
+					&cli.StringFlag{
+						Name:    "s3-hostname",
+						Aliases: []string{"e"},
+						Usage:   "S3 hostname",
+						EnvVars: []string{"S3_HOSTNAME"},
+					},
+					&cli.StringFlag{
+						Name:    "s3-api-key",
+						Aliases: []string{"k"},
+						Usage:   "S3 API key",
+						EnvVars: []string{"S3_API_KEY"},
+					},
+					&cli.StringFlag{
+						Name:    "s3-secret-key",
+						Aliases: []string{"s"},
+						Usage:   "S3 secret key",
+						EnvVars: []string{"S3_SECRET_KEY"},
 					},
 				},
+			},
+			{
+				Name:    "test-s3",
+				Aliases: []string{"t"},
+				Usage:   "Test S3 connection",
 				Action: func(cCtx *cli.Context) error {
-					log.Println("Initializing data set")
+					fmt.Printf("\n\tDISCLOSURE CLI\n")
+					fmt.Printf("\n|          Test S3            |\n")
+					fmt.Printf("------------------------------\n")
+					fmt.Printf("Testing S3 connection\n")
 					return nil
 				},
 			},
