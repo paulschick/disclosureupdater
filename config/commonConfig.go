@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/spf13/viper"
+	"github.com/urfave/cli/v2"
 	"path"
 )
 
@@ -78,6 +79,30 @@ func (s *S3StaticProfile) StaticAuthentication() bool {
 	return true
 }
 
+func S3ProfileFromCtx(c *cli.Context) S3Profile {
+	s3Bucket := c.String("s3-bucket")
+	s3Region := c.String("s3-region")
+	s3Hostname := c.String("s3-hostname")
+	s3Default := S3DefaultProfile{
+		S3Bucket:   s3Bucket,
+		S3Region:   s3Region,
+		S3Hostname: s3Hostname,
+	}
+
+	// check if we have static credentials
+	s3ApiKey := c.String("s3-api-key")
+	s3SecretKey := c.String("s3-secret-key")
+	if s3ApiKey != "" && s3SecretKey != "" {
+		return &S3StaticProfile{
+			S3DefaultProfile: s3Default,
+			S3ApiKey:         s3ApiKey,
+			S3SecretKey:      s3SecretKey,
+		}
+	} else {
+		return &s3Default
+	}
+}
+
 func BuildViper(profile string, dirs *CommonDirs, s3Profile S3Profile) *viper.Viper {
 	v := viper.New()
 	v.SetConfigType("yaml")
@@ -91,4 +116,27 @@ func BuildViper(profile string, dirs *CommonDirs, s3Profile S3Profile) *viper.Vi
 		v.Set(profile+".s3.s3SecretKey", s3Profile.(*S3StaticProfile).S3SecretKey)
 	}
 	return v
+}
+
+func UpdateS3Config(s3Profile S3Profile, dirs *CommonDirs) error {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(path.Join(dirs.BaseFolder, "config.yaml"))
+	err := v.ReadInConfig()
+	if err != nil {
+		return err
+	}
+	profile := "default"
+	v.Set(profile+".s3.s3Bucket", s3Profile.GetBucket())
+	v.Set(profile+".s3.s3Region", s3Profile.GetRegion())
+	v.Set(profile+".s3.s3Hostname", s3Profile.GetHostname())
+	if s3Profile.StaticAuthentication() {
+		v.Set(profile+".s3.s3ApiKey", s3Profile.(*S3StaticProfile).S3ApiKey)
+		v.Set(profile+".s3.s3SecretKey", s3Profile.(*S3StaticProfile).S3SecretKey)
+	}
+	err = v.WriteConfig()
+	if err != nil {
+		return err
+	}
+	return nil
 }
