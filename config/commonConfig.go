@@ -79,6 +79,32 @@ func (s *S3StaticProfile) StaticAuthentication() bool {
 	return true
 }
 
+func S3ProfileFromConfig(dirs *CommonDirs, profile string) S3Profile {
+	err, v := ViperFromConfig(dirs)
+	if err != nil {
+		panic(err)
+	}
+	s3Bucket := v.GetString(profile + ".s3.s3bucket")
+	s3Region := v.GetString(profile + ".s3.s3region")
+	s3Hostname := v.GetString(profile + ".s3.s3hostname")
+	s3Default := S3DefaultProfile{
+		S3Bucket:   s3Bucket,
+		S3Region:   s3Region,
+		S3Hostname: s3Hostname,
+	}
+	s3ApiKey := v.GetString(profile + ".s3.s3ApiKey")
+	s3SecretKey := v.GetString(profile + ".s3.s3SecretKey")
+	if s3ApiKey != "" && s3SecretKey != "" {
+		return &S3StaticProfile{
+			S3DefaultProfile: s3Default,
+			S3ApiKey:         s3ApiKey,
+			S3SecretKey:      s3SecretKey,
+		}
+	} else {
+		return &s3Default
+	}
+}
+
 func S3ProfileFromCtx(c *cli.Context) S3Profile {
 	s3Bucket := c.String("s3-bucket")
 	s3Region := c.String("s3-region")
@@ -101,6 +127,17 @@ func S3ProfileFromCtx(c *cli.Context) S3Profile {
 	} else {
 		return &s3Default
 	}
+}
+
+func ViperFromConfig(dirs *CommonDirs) (error, *viper.Viper) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(path.Join(dirs.BaseFolder, "config.yaml"))
+	err := v.ReadInConfig()
+	if err != nil {
+		return err, nil
+	}
+	return nil, v
 }
 
 func BuildViper(profile string, dirs *CommonDirs, s3Profile S3Profile) *viper.Viper {

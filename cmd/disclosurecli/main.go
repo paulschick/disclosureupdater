@@ -91,6 +91,10 @@ func main() {
 					fmt.Printf("\n|          Test S3            |\n")
 					fmt.Printf("------------------------------\n")
 					fmt.Printf("Testing S3 connection\n")
+					s3Profile := config.S3ProfileFromConfig(commonDirs, "default")
+					fmt.Printf("S3 Bucket: %s\n", s3Profile.GetBucket())
+					fmt.Printf("S3 Region: %s\n", s3Profile.GetRegion())
+					fmt.Printf("S3 Hostname: %s\n", s3Profile.GetHostname())
 					return nil
 				},
 			},
