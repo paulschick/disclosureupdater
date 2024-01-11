@@ -2,10 +2,14 @@ package s3client
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	conf "github.com/paulschick/disclosureupdater/config"
 )
 
@@ -51,4 +55,45 @@ func NewS3ServiceV2(s3Profile conf.S3Profile) (*S3ServiceV2, error) {
 		Client:    client,
 		S3Profile: s3Profile,
 	}, err
+}
+
+func (s *S3ServiceV2) CreateNewBucket() error {
+	exists, err := s.BucketExists()
+	if err != nil {
+		fmt.Printf("Error checking if bucket exists: %s\n", err)
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = s.Client.CreateBucket(context.TODO(), &s3.CreateBucketInput{
+		Bucket: aws.String(s.S3Profile.GetBucket()),
+	})
+	if err != nil {
+		fmt.Printf("Error creating bucket: %s\n", err)
+		return err
+	}
+	return nil
+}
+
+func (s *S3ServiceV2) BucketExists() (bool, error) {
+	_, err := s.Client.HeadBucket(context.TODO(), &s3.HeadBucketInput{
+		Bucket: aws.String(s.S3Profile.GetBucket()),
+	})
+	exists := true
+	if err != nil {
+		var apiError smithy.APIError
+		if errors.As(err, &apiError) {
+			switch apiError.(type) {
+			case *types.NotFound:
+				exists = false
+				err = nil
+			default:
+				return false, err
+			}
+		}
+	} else {
+		fmt.Printf("Bucket %s exists\n", s.S3Profile.GetBucket())
+	}
+	return exists, err
 }

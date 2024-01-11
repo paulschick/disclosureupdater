@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/s3client"
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
@@ -42,11 +43,13 @@ func main() {
 				Usage:     "Initialize environment configuration",
 				UsageText: "Write S3 configuration values to file",
 				Action: func(cCtx *cli.Context) error {
+					fmt.Printf("Updating S3 configuration\n")
 					s3Profile := config.S3ProfileFromCtx(cCtx)
 					err := config.UpdateS3Config(s3Profile, commonDirs)
 					if err != nil {
 						return err
 					}
+					fmt.Printf("S3 configuration updated\n")
 					return nil
 				},
 				Flags: []cli.Flag{
@@ -95,6 +98,18 @@ func main() {
 					fmt.Printf("S3 Bucket: %s\n", s3Profile.GetBucket())
 					fmt.Printf("S3 Region: %s\n", s3Profile.GetRegion())
 					fmt.Printf("S3 Hostname: %s\n", s3Profile.GetHostname())
+					service, err := s3client.NewS3ServiceV2(s3Profile)
+					if err != nil {
+						fmt.Printf("Error creating S3 service: %s\n", err)
+						return err
+					}
+					fmt.Printf("Initialized s3Service\n")
+					err = service.CreateNewBucket()
+					if err != nil {
+						fmt.Printf("Error creating bucket: %s\n", err)
+						return err
+					}
+					fmt.Printf("Created bucket if not exists operation complete\n")
 					return nil
 				},
 			},
