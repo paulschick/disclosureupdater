@@ -178,6 +178,7 @@ func DownloadZipsIfNotPresent(downloads []*DisclosureDownload) error {
 			defer wg.Done()
 			if !d.XmlIsPresent() {
 				if !d.ZipIsPresent() {
+					fmt.Printf("Downloading %s\n", d.ZipPath)
 					err = d.Download()
 					if err != nil {
 						log.Fatalf("Error downloading %s: %s", d.Url, err)
