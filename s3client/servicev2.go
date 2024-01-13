@@ -1,6 +1,7 @@
 package s3client
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	conf "github.com/paulschick/disclosureupdater/config"
+	"os"
+	"path/filepath"
 )
 
 type S3ServiceV2 struct {
@@ -96,4 +99,49 @@ func (s *S3ServiceV2) BucketExists() (bool, error) {
 		fmt.Printf("Bucket %s exists\n", s.S3Profile.GetBucket())
 	}
 	return exists, err
+}
+
+func (s *S3ServiceV2) WriteBucketObjects(commonDirs *conf.CommonDirs) error {
+	var maxKeys int32 = 1000
+	params := &s3.ListObjectsV2Input{
+		Bucket: aws.String(s.S3Profile.GetBucket()),
+	}
+	p := s3.NewListObjectsV2Paginator(s.Client, params, func(o *s3.ListObjectsV2PaginatorOptions) {
+		o.Limit = maxKeys
+	})
+	pageNo := 0
+	for p.HasMorePages() {
+		page, err := p.NextPage(context.TODO())
+		items := make([]string, 0)
+		if err != nil {
+			return err
+		}
+		for _, obj := range page.Contents {
+			items = append(items, *obj.Key)
+		}
+		fp := filepath.Join(commonDirs.S3Folder, "s3_objects.txt")
+		var file *os.File
+		if pageNo == 0 {
+			if _, b := os.Stat(fp); !errors.Is(b, os.ErrNotExist) {
+				// delete file
+				err = os.Remove(fp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		file, err = os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		dataWriter := bufio.NewWriter(file)
+		for _, item := range items {
+			_, _ = dataWriter.WriteString(item + "\n")
+		}
+		_ = dataWriter.Flush()
+		_ = file.Close()
+
+		pageNo++
+	}
+	return nil
 }

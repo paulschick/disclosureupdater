@@ -106,6 +106,14 @@ func main() {
 				},
 			},
 			{
+				Name:      "upload-s3",
+				Usage:     "Upload PDFs to S3 that are not present",
+				UsageText: "disclosurecli upload-s3\n",
+				Action: func(cCtx *cli.Context) error {
+					return UploadPdfs(commonDirs)(cCtx)
+				},
+			},
+			{
 				Name:    "test-s3",
 				Aliases: []string{"t"},
 				Usage:   "Test S3 connection",
