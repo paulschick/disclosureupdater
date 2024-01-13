@@ -128,6 +128,15 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "convert-pdfs",
+				Usage: "Convert PDFs to JPGs",
+				UsageText: "Convert PDFs to JPGs\n" +
+					"   disclosurecli convert-pdfs\n",
+				Action: func(cCtx *cli.Context) error {
+					return PdfToJpg(commonDirs)(cCtx)
+				},
+			},
 		},
 	}
 

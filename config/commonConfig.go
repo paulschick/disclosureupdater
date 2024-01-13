@@ -12,6 +12,7 @@ type CommonDirs struct {
 	DataFolder        string
 	S3Folder          string
 	DisclosuresFolder string
+	ImageFolder       string
 }
 
 func NewCommonDirs(baseFolder string) *CommonDirs {
@@ -21,6 +22,7 @@ func NewCommonDirs(baseFolder string) *CommonDirs {
 		DataFolder:        dataFolder,
 		S3Folder:          path.Join(dataFolder, "s3"),
 		DisclosuresFolder: path.Join(dataFolder, "disclosures"),
+		ImageFolder:       path.Join(dataFolder, "images"),
 	}
 }
 
@@ -30,6 +32,10 @@ func (c *CommonDirs) CreateDirectories() error {
 		return err
 	}
 	err = util.TryCreateDirectories(c.DisclosuresFolder)
+	if err != nil {
+		return err
+	}
+	err = util.TryCreateDirectories(c.ImageFolder)
 	if err != nil {
 		return err
 	}
