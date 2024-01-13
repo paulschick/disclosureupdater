@@ -106,11 +106,27 @@ func main() {
 				},
 			},
 			{
+				Name:  "update-bucket-items",
+				Usage: "Update the list of bucket items",
+				UsageText: "Update the list of bucket items\n" +
+					"   disclosurecli update-bucket-items\n",
+				Action: func(cCtx *cli.Context) error {
+					return UpdateBucketItemIndex(commonDirs)(cCtx)
+				},
+			},
+			{
 				Name:      "upload-s3",
 				Usage:     "Upload PDFs to S3 that are not present",
 				UsageText: "disclosurecli upload-s3\n",
 				Action: func(cCtx *cli.Context) error {
 					return UploadPdfs(commonDirs)(cCtx)
+				},
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "update-index",
+						Aliases: []string{"u"},
+						Usage:   "Update the list of bucket items",
+					},
 				},
 			},
 			{

@@ -145,3 +145,46 @@ func (s *S3ServiceV2) WriteBucketObjects(commonDirs *conf.CommonDirs) error {
 	}
 	return nil
 }
+
+func (s *S3ServiceV2) UploadPdfsS3(commonDirs *conf.CommonDirs) error {
+	var err error
+	indexFp := filepath.Join(commonDirs.S3Folder, "s3_objects.txt")
+	if _, b := os.Stat(indexFp); errors.Is(b, os.ErrNotExist) {
+		fmt.Printf("No index file found at %s\n", indexFp)
+		// there should be an empty file at least
+		return nil
+	}
+	var file *os.File
+	file, err = os.Open(indexFp)
+	if err != nil {
+		fmt.Printf("Error opening file %s: %s\n", indexFp, err)
+		return err
+	}
+	defer func() {
+		// not handling close error for now
+		_ = file.Close()
+	}()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// This is a file name in S3
+		line := scanner.Text()
+		fmt.Printf("S3 Item:\t%s\n", line)
+	}
+
+	return err
+}
+
+func (s *S3ServiceV2) UploadFile(file *os.File) error {
+	var err error
+	fileName := file.Name()
+	_, err = s.Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(s.S3Profile.GetBucket()),
+		Key:    aws.String(fileName),
+		Body:   file,
+	})
+	if err != nil {
+		fmt.Printf("Failed to upload file %s: %s\n", fileName, err)
+		return err
+	}
+	return err
+}
