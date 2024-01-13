@@ -57,42 +57,6 @@ func UploadPdfs(commonDirs *config.CommonDirs) CliFunc {
 		fmt.Printf("Operating on %s Bucket\n", service.S3Profile.GetBucket())
 
 		err = service.UploadPdfsS3(commonDirs)
-
-		// TODO - for reference, uploaded 5 files to get bucket index
-		//fmt.Printf("DEMO - uploading 5 files to get a real index\n")
-
-		//pdfDir := commonDirs.DisclosuresFolder
-		//var files []os.DirEntry
-		//files, err = os.ReadDir(pdfDir)
-		//if err != nil {
-		//	fmt.Printf("Error reading directory: %s\n", err)
-		//	return err
-		//}
-		//for i, file := range files {
-		//	if i > 4 {
-		//		fmt.Printf("DEMO - only uploading 5 files - complete\n")
-		//		break
-		//	}
-		//	fmt.Printf("DEMO - uploading file %d of %d\n", i+1, len(files))
-		//	fmt.Printf("DEMO - uploading file %s\n", file.Name())
-		//	//err = service.UploadFileToBucket(file)
-		//	f, err := os.Open(fmt.Sprintf("%s/%s", pdfDir, file.Name()))
-		//	if err != nil {
-		//		fmt.Printf("Error opening file: %s\n", err)
-		//		return err
-		//	}
-		//	err = service.UploadFile(f)
-		//	if err != nil {
-		//		fmt.Printf("Error uploading file: %s\n", err)
-		//		return err
-		//	}
-		//	err = f.Close()
-		//	if err != nil {
-		//		fmt.Printf("Error closing file: %s\n", err)
-		//		return err
-		//	}
-		//}
-
 		return err
 	}
 }

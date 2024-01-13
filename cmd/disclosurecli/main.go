@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/config"
-	"github.com/paulschick/disclosureupdater/s3client"
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
@@ -127,34 +126,6 @@ func main() {
 						Aliases: []string{"u"},
 						Usage:   "Update the list of bucket items",
 					},
-				},
-			},
-			{
-				Name:    "test-s3",
-				Aliases: []string{"t"},
-				Usage:   "Test S3 connection",
-				Action: func(cCtx *cli.Context) error {
-					fmt.Printf("\n\tDISCLOSURE CLI\n")
-					fmt.Printf("\n|          Test S3            |\n")
-					fmt.Printf("------------------------------\n")
-					fmt.Printf("Testing S3 connection\n")
-					s3Profile := config.S3ProfileFromConfig(commonDirs, "default")
-					fmt.Printf("S3 Bucket: %s\n", s3Profile.GetBucket())
-					fmt.Printf("S3 Region: %s\n", s3Profile.GetRegion())
-					fmt.Printf("S3 Hostname: %s\n", s3Profile.GetHostname())
-					service, err := s3client.NewS3ServiceV2(s3Profile)
-					if err != nil {
-						fmt.Printf("Error creating S3 service: %s\n", err)
-						return err
-					}
-					fmt.Printf("Initialized s3Service\n")
-					err = service.CreateNewBucket()
-					if err != nil {
-						fmt.Printf("Error creating bucket: %s\n", err)
-						return err
-					}
-					fmt.Printf("Created bucket if not exists operation complete\n")
-					return nil
 				},
 			},
 		},
