@@ -14,6 +14,8 @@ import (
 	conf "github.com/paulschick/disclosureupdater/config"
 	"os"
 	"path/filepath"
+	"slices"
+	"time"
 )
 
 type S3ServiceV2 struct {
@@ -165,11 +167,89 @@ func (s *S3ServiceV2) UploadPdfsS3(commonDirs *conf.CommonDirs) error {
 		_ = file.Close()
 	}()
 	scanner := bufio.NewScanner(file)
+	inBucket := make([]string, 0)
 	for scanner.Scan() {
-		// This is a file name in S3
+		// Bucket lines contain full file path
 		line := scanner.Text()
 		fmt.Printf("S3 Item:\t%s\n", line)
+		if _, b := os.Stat(line); errors.Is(b, os.ErrNotExist) {
+			fmt.Printf("File %s does not exist\n", line)
+		} else {
+			inBucket = append(inBucket, line)
+		}
 	}
+	pdfDir := commonDirs.DisclosuresFolder
+	var files []os.DirEntry
+	files, err = os.ReadDir(pdfDir)
+	if err != nil {
+		fmt.Printf("Error reading directory: %s\n", err)
+		return err
+	}
+	toUploadSlice := make([]string, 0)
+	for _, dirEntry := range files {
+		file, err := os.Open(fmt.Sprintf("%s/%s", pdfDir, dirEntry.Name()))
+		if err != nil {
+			fmt.Printf("Error opening file: %s\n", err)
+			return err
+		}
+
+		fName := file.Name()
+		isInBucket := slices.Contains(inBucket, fName)
+		if isInBucket {
+			fmt.Printf("File %s is in bucket, skipping\n", fName)
+		} else {
+			toUploadSlice = append(toUploadSlice, fName)
+		}
+	}
+	fmt.Printf("Uploading %d files\n", len(toUploadSlice))
+
+	done := make(chan bool, len(toUploadSlice))
+	errs := make(chan error, len(toUploadSlice))
+	// 25 requests per second
+	var reqPer time.Duration = 25
+	throttle := time.Tick(time.Second / reqPer)
+	fmt.Printf("Uploading at %d requests per second\n", reqPer)
+	uploadCount := 0
+	for _, fName := range toUploadSlice {
+		go func(fName string) {
+			<-throttle
+			file, err := os.Open(fName)
+			if err != nil {
+				fmt.Printf("Error opening file: %s\n", err)
+				errs <- err
+				done <- false
+				return
+			}
+			err = s.UploadFile(file)
+			if err != nil {
+				fmt.Printf("Error uploading file: %s\n", err)
+				errs <- err
+				done <- false
+				return
+			}
+			err = file.Close()
+			if err != nil {
+				fmt.Printf("Error closing file: %s\n", err)
+				errs <- err
+				done <- false
+				return
+			}
+			done <- true
+			errs <- nil
+			uploadCount++
+			fmt.Printf("Uploaded file %s\tUpload Count %d\n", fName, uploadCount)
+		}(fName)
+	}
+	var errStr string
+	for i := 0; i < len(toUploadSlice); i++ {
+		if err := <-errs; err != nil {
+			errStr = errStr + " " + err.Error()
+		}
+	}
+	if errStr != "" {
+		err = errors.New(errStr)
+	}
+	fmt.Printf("Uploaded %d files\n", uploadCount)
 
 	return err
 }
