@@ -146,6 +146,15 @@ func main() {
 					return PngOcr(commonDirs)(cCtx)
 				},
 			},
+			{
+				Name:  "test-img-proc",
+				Usage: "Test image processing",
+				UsageText: "Test image processing\n" +
+					"   disclosurecli test-img-proc\n",
+				Action: func(cCtx *cli.Context) error {
+					return TestImageProcessing(commonDirs)(cCtx)
+				},
+			},
 		},
 	}
 
