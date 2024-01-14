@@ -3,6 +3,7 @@ package imgProcess
 import (
 	"errors"
 	"fmt"
+	"github.com/disintegration/gift"
 	"image"
 	"image/color"
 	"image/png"
@@ -98,42 +99,57 @@ func (p *ProcessImage) SaveImage(img *image.RGBA) error {
 	return f.Close()
 }
 
-func (p *ProcessImage) RotateImage90DegreesLeft(tensor [][]color.Color) [][]color.Color {
-	if len(tensor) == 0 {
-		return nil
-	}
-	rowCount := len(tensor)
-	colCount := len(tensor[0])
-	newTensor := make([][]color.Color, colCount)
-	for i := range newTensor {
-		newTensor[i] = make([]color.Color, rowCount)
-	}
+//func (p *ProcessImage) RotateImage90DegreesLeft(tensor [][]color.Color) [][]color.Color {
+//	if len(tensor) == 0 {
+//		return nil
+//	}
+//	rowCount := len(tensor)
+//	colCount := len(tensor[0])
+//	newTensor := make([][]color.Color, colCount)
+//	for i := range newTensor {
+//		newTensor[i] = make([]color.Color, rowCount)
+//	}
+//
+//	for i := 0; i < rowCount; i++ {
+//		for j := 0; j < colCount; j++ {
+//			newTensor[j][rowCount-i-1] = tensor[i][j]
+//		}
+//	}
+//
+//	return newTensor
+//}
+//
+//func (p *ProcessImage) RotateImage90DegreesRight(tensor [][]color.Color) [][]color.Color {
+//	if len(tensor) == 0 {
+//		return nil
+//	}
+//	rowCount := len(tensor)
+//	colCount := len(tensor[0])
+//	newTensor := make([][]color.Color, colCount)
+//	for i := range newTensor {
+//		newTensor[i] = make([]color.Color, rowCount)
+//	}
+//
+//	for i := 0; i < rowCount; i++ {
+//		for j := 0; j < colCount; j++ {
+//			newTensor[colCount-j-1][i] = tensor[i][j]
+//		}
+//	}
+//
+//	return newTensor
+//}
 
-	for i := 0; i < rowCount; i++ {
-		for j := 0; j < colCount; j++ {
-			newTensor[j][rowCount-i-1] = tensor[i][j]
-		}
+func (p *ProcessImage) RotateImage() error {
+	img, err := p.OpenImage()
+	if err != nil {
+		fmt.Println(err)
+		return err
 	}
+	g := gift.New(
+		gift.Rotate90(),
+	)
 
-	return newTensor
-}
-
-func (p *ProcessImage) RotateImage90DegreesRight(tensor [][]color.Color) [][]color.Color {
-	if len(tensor) == 0 {
-		return nil
-	}
-	rowCount := len(tensor)
-	colCount := len(tensor[0])
-	newTensor := make([][]color.Color, colCount)
-	for i := range newTensor {
-		newTensor[i] = make([]color.Color, rowCount)
-	}
-
-	for i := 0; i < rowCount; i++ {
-		for j := 0; j < colCount; j++ {
-			newTensor[colCount-j-1][i] = tensor[i][j]
-		}
-	}
-
-	return newTensor
+	newImg := image.NewRGBA(g.Bounds(img.Bounds()))
+	g.Draw(newImg, img)
+	return p.SaveImage(newImg)
 }
