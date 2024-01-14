@@ -7,7 +7,7 @@ import (
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
-	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,7 +84,7 @@ func (p *PdfConverter) ConvertIfNotPresent() error {
 			return err
 		}
 		fmt.Printf("processing image %s\n", imageName)
-		err = jpeg.Encode(f, img, &jpeg.Options{Quality: 100})
+		err = png.Encode(f, img)
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (p *PdfConverter) CreateImageDir() error {
 }
 
 func (p *PdfConverter) GetImageName(pageNumber int) string {
-	return fmt.Sprintf("%s-%d.jpg", p.BaseFileName, pageNumber)
+	return fmt.Sprintf("%s-%d.png", p.BaseFileName, pageNumber)
 }
 
 func (p *PdfConverter) CreateImageFile(pageNumber int) (*os.File, error) {
@@ -115,9 +115,8 @@ func (p *PdfConverter) CreateImageFile(pageNumber int) (*os.File, error) {
 	return os.Create(filepath.Join(p.ImageDir, imageName))
 }
 
-// PdfToJpg converts PDF files to JPG files
-// TODO - use a Mutex to limit number of concurrent conversions
-func PdfToJpg(commonDirs *config.CommonDirs) CliFunc {
+// PdfToPng converts PDF files to PNG files
+func PdfToPng(commonDirs *config.CommonDirs) CliFunc {
 	return func(cCtx *cli.Context) error {
 		pdfDir := commonDirs.DisclosuresFolder
 		dirEntries, err := os.ReadDir(pdfDir)

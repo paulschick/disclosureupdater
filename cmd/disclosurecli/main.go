@@ -130,20 +130,20 @@ func main() {
 			},
 			{
 				Name:  "convert-pdfs",
-				Usage: "Convert PDFs to JPGs",
-				UsageText: "Convert PDFs to JPGs\n" +
+				Usage: "Convert PDFs to PNGs",
+				UsageText: "Convert PDFs to PNGs\n" +
 					"   disclosurecli convert-pdfs\n",
 				Action: func(cCtx *cli.Context) error {
-					return PdfToJpg(commonDirs)(cCtx)
+					return PdfToPng(commonDirs)(cCtx)
 				},
 			},
 			{
-				Name:  "ocr-jpgs",
-				Usage: "OCR JPGs using gosseract",
-				UsageText: "OCR JPGs using gosseract\n" +
-					"   disclosurecli ocr-jpgs\n",
+				Name:  "ocr-pngs",
+				Usage: "OCR NPGs using gosseract",
+				UsageText: "OCR PNGs using gosseract\n" +
+					"   disclosurecli ocr-pngs\n",
 				Action: func(cCtx *cli.Context) error {
-					return JpgOcr(commonDirs)(cCtx)
+					return PngOcr(commonDirs)(cCtx)
 				},
 			},
 		},
