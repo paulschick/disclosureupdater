@@ -137,6 +137,15 @@ func main() {
 					return PdfToJpg(commonDirs)(cCtx)
 				},
 			},
+			{
+				Name:  "ocr-jpgs",
+				Usage: "OCR JPGs using gosseract",
+				UsageText: "OCR JPGs using gosseract\n" +
+					"   disclosurecli ocr-jpgs\n",
+				Action: func(cCtx *cli.Context) error {
+					return JpgOcr(commonDirs)(cCtx)
+				},
+			},
 		},
 	}
 
