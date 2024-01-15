@@ -1,9 +1,10 @@
-package main
+package cmds
 
 import (
 	"fmt"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -70,7 +71,7 @@ func (i *ImageOcr) MakeOcrDir() error {
 	return util.TryCreateDirectories(i.OcrOutputFolder)
 }
 
-func PngOcr(commonDirs *config.CommonDirs) CliFunc {
+func PngOcr(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(cCtx *cli.Context) error {
 		baseImageFolder := commonDirs.ImageFolder
 		imageFolders, err := os.ReadDir(baseImageFolder)

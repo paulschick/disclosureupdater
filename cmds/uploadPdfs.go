@@ -1,8 +1,9 @@
-package main
+package cmds
 
 import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/paulschick/disclosureupdater/s3client"
 	"github.com/urfave/cli/v2"
 )
@@ -26,14 +27,14 @@ func updateBucketItemIndex(commonDirs *config.CommonDirs) (*s3client.S3ServiceV2
 	return service, err
 }
 
-func UpdateBucketItemIndex(commonDirs *config.CommonDirs) CliFunc {
+func UpdateBucketItemIndex(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(cCtx *cli.Context) error {
 		_, err := updateBucketItemIndex(commonDirs)
 		return err
 	}
 }
 
-func UploadPdfs(commonDirs *config.CommonDirs) CliFunc {
+func UploadPdfs(commonDirs *config.CommonDirs) model.CliFunc {
 	var err error
 	return func(cCtx *cli.Context) error {
 		shouldUpdateIndex := cCtx.Bool("update-index")

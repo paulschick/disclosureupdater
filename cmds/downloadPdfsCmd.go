@@ -1,4 +1,4 @@
-package main
+package cmds
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func DownloadPdfsCmd(commonDirs *config.CommonDirs) CliFunc {
+func DownloadPdfsCmd(commonDirs *config.CommonDirs) model.CliFunc {
 	var err error
 
 	return func(c *cli.Context) error {

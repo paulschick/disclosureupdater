@@ -1,16 +1,17 @@
-package main
+package cmds
 
 import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/downloader"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
 	"os"
 	"strings"
 )
 
-func DownloadUrlsCmd(commonDirs *config.CommonDirs) CliFunc {
+func DownloadUrlsCmd(commonDirs *config.CommonDirs) model.CliFunc {
 	var err error
 
 	return func(cCtx *cli.Context) error {

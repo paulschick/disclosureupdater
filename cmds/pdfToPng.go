@@ -1,10 +1,11 @@
-package main
+package cmds
 
 import (
 	"errors"
 	"fmt"
 	"github.com/gen2brain/go-fitz"
 	"github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
 	"image/png"
@@ -116,7 +117,7 @@ func (p *PdfConverter) CreateImageFile(pageNumber int) (*os.File, error) {
 }
 
 // PdfToPng converts PDF files to PNG files
-func PdfToPng(commonDirs *config.CommonDirs) CliFunc {
+func PdfToPng(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(cCtx *cli.Context) error {
 		pdfDir := commonDirs.DisclosuresFolder
 		dirEntries, err := os.ReadDir(pdfDir)

@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/paulschick/disclosureupdater/cmds"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
 	"path"
 )
-
-type CliFunc func(cCtx *cli.Context) error
 
 // main
 // https://github.com/spf13/viper
@@ -92,7 +91,7 @@ func main() {
 				UsageText: "Update the list of disclosure URLs\n" +
 					"   disclosurecli update-urls\n",
 				Action: func(cCtx *cli.Context) error {
-					return DownloadUrlsCmd(commonDirs)(cCtx)
+					return cmds.DownloadUrlsCmd(commonDirs)(cCtx)
 				},
 			},
 			{
@@ -101,7 +100,7 @@ func main() {
 				UsageText: "Download the PDFs\n" +
 					"   disclosurecli download-pdfs\n",
 				Action: func(cCtx *cli.Context) error {
-					return DownloadPdfsCmd(commonDirs)(cCtx)
+					return cmds.DownloadPdfsCmd(commonDirs)(cCtx)
 				},
 			},
 			{
@@ -110,7 +109,7 @@ func main() {
 				UsageText: "Update the list of bucket items\n" +
 					"   disclosurecli update-bucket-items\n",
 				Action: func(cCtx *cli.Context) error {
-					return UpdateBucketItemIndex(commonDirs)(cCtx)
+					return cmds.UpdateBucketItemIndex(commonDirs)(cCtx)
 				},
 			},
 			{
@@ -118,7 +117,7 @@ func main() {
 				Usage:     "Upload PDFs to S3 that are not present",
 				UsageText: "disclosurecli upload-s3\n",
 				Action: func(cCtx *cli.Context) error {
-					return UploadPdfs(commonDirs)(cCtx)
+					return cmds.UploadPdfs(commonDirs)(cCtx)
 				},
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
@@ -134,7 +133,7 @@ func main() {
 				UsageText: "Convert PDFs to PNGs\n" +
 					"   disclosurecli convert-pdfs\n",
 				Action: func(cCtx *cli.Context) error {
-					return PdfToPng(commonDirs)(cCtx)
+					return cmds.PdfToPng(commonDirs)(cCtx)
 				},
 			},
 			{
@@ -143,7 +142,7 @@ func main() {
 				UsageText: "OCR PNGs using gosseract\n" +
 					"   disclosurecli ocr-pngs\n",
 				Action: func(cCtx *cli.Context) error {
-					return PngOcr(commonDirs)(cCtx)
+					return cmds.PngOcr(commonDirs)(cCtx)
 				},
 			},
 			{
@@ -152,7 +151,17 @@ func main() {
 				UsageText: "Test image processing\n" +
 					"   disclosurecli test-img-proc\n",
 				Action: func(cCtx *cli.Context) error {
-					return TestImageProcessing(commonDirs)(cCtx)
+					return cmds.TestImageProcessing(commonDirs)(cCtx)
+				},
+			},
+			{
+				Name:  "cleanup-images",
+				Usage: "Remove empty image directores",
+				UsageText: "Remove empty image directores\n" +
+					"Use this when the image processing fails\n" +
+					"   disclosurecli cleanup-images\n",
+				Action: func(cCtx *cli.Context) error {
+					return cmds.CleanupImages(commonDirs)(cCtx)
 				},
 			},
 		},

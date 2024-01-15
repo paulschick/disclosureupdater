@@ -1,8 +1,9 @@
-package main
+package cmds
 
 import (
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/imgProcess"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/urfave/cli/v2"
 	"path"
 )
@@ -13,7 +14,7 @@ import (
 // Should only need to rotate 90 degrees for any sideways images
 // I need to detect if the horizontal line is longer or shorter than the vertical line
 // Horizontal line should be longer than the vertical line
-func TestImageProcessing(commonDirs *config.CommonDirs) CliFunc {
+func TestImageProcessing(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(cCtx *cli.Context) error {
 		sideways1 := path.Join(commonDirs.ImageFolder,
 			"2013.ptr-pdfs.FL09.Grayson.Alan.9105705",
