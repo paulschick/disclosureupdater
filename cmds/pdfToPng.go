@@ -55,7 +55,7 @@ func (p *PdfConverter) ImageDirExists() (bool, error) {
 	return true, nil
 }
 
-func (p *PdfConverter) ConvertIfNotPresent() error {
+func (p *PdfConverter) ConvertIfNotPresent(extension string) error {
 	exists, err := p.ImageDirExists()
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (p *PdfConverter) ConvertIfNotPresent() error {
 		if err != nil {
 			return err
 		}
-		imageName := p.GetImageName(n)
+		imageName := p.GetImageName(n, extension)
 		f, err := os.Create(filepath.Join(p.ImageDir, imageName))
 		if err != nil {
 			return err
@@ -107,18 +107,25 @@ func (p *PdfConverter) CreateImageDir() error {
 	return util.TryCreateDirectories(p.ImageDir)
 }
 
-func (p *PdfConverter) GetImageName(pageNumber int) string {
-	return fmt.Sprintf("%s-%d.png", p.BaseFileName, pageNumber)
+func (p *PdfConverter) GetImageName(pageNumber int, extension string) string {
+	return fmt.Sprintf("%s-%d%s", p.BaseFileName, pageNumber, extension)
 }
 
-func (p *PdfConverter) CreateImageFile(pageNumber int) (*os.File, error) {
-	imageName := p.GetImageName(pageNumber)
+func (p *PdfConverter) CreateImageFile(pageNumber int, extension string) (*os.File, error) {
+	imageName := p.GetImageName(pageNumber, extension)
 	return os.Create(filepath.Join(p.ImageDir, imageName))
 }
 
 // PdfToPng converts PDF files to PNG files
 func PdfToPng(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(cCtx *cli.Context) error {
+		jpgInstead := cCtx.Bool("jpg")
+		var extension string
+		if jpgInstead {
+			extension = ".jpg"
+		} else {
+			extension = ".png"
+		}
 		pdfDir := commonDirs.DisclosuresFolder
 		dirEntries, err := os.ReadDir(pdfDir)
 		if err != nil {
@@ -141,7 +148,7 @@ func PdfToPng(commonDirs *config.CommonDirs) model.CliFunc {
 			waitChan <- struct{}{}
 			count++
 			go func(pdfConverter *PdfConverter) {
-				err := pdfConverter.ConvertIfNotPresent()
+				err := pdfConverter.ConvertIfNotPresent(extension)
 				if err != nil {
 					errs <- err
 					done <- false

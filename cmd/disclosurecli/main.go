@@ -135,6 +135,13 @@ func main() {
 				Action: func(cCtx *cli.Context) error {
 					return cmds.PdfToPng(commonDirs)(cCtx)
 				},
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name: "jpg",
+						Usage: "Convert PDFs to JPGs instead of PNGs\n" +
+							"   disclosurecli convert-pdfs --jpg\n",
+					},
+				},
 			},
 			{
 				Name:  "ocr-pngs",
