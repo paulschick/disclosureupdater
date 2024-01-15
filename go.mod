@@ -8,10 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.13
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.7
 	github.com/aws/smithy-go v1.19.0
-	github.com/disintegration/gift v1.2.1
 	github.com/gen2brain/go-fitz v1.23.7
 	github.com/magiconair/properties v1.8.7
-	github.com/otiai10/gosseract/v2 v2.4.1
 	github.com/spf13/viper v1.18.2
 	github.com/urfave/cli/v2 v2.27.0
 )

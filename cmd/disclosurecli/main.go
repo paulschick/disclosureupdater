@@ -144,24 +144,6 @@ func main() {
 				},
 			},
 			{
-				Name:  "ocr-pngs",
-				Usage: "OCR NPGs using gosseract",
-				UsageText: "OCR PNGs using gosseract\n" +
-					"   disclosurecli ocr-pngs\n",
-				Action: func(cCtx *cli.Context) error {
-					return cmds.PngOcr(commonDirs)(cCtx)
-				},
-			},
-			{
-				Name:  "test-img-proc",
-				Usage: "Test image processing",
-				UsageText: "Test image processing\n" +
-					"   disclosurecli test-img-proc\n",
-				Action: func(cCtx *cli.Context) error {
-					return cmds.TestImageProcessing(commonDirs)(cCtx)
-				},
-			},
-			{
 				Name:  "cleanup-images",
 				Usage: "Remove empty image directores",
 				UsageText: "Remove empty image directores\n" +
