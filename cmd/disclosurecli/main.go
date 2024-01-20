@@ -153,6 +153,13 @@ func main() {
 					return cmds.CleanupImages(commonDirs)(cCtx)
 				},
 			},
+			{
+				Name:  "test-ocr",
+				Usage: "test ocr to tsv",
+				Action: func(cCtx *cli.Context) error {
+					return cmds.OcrImages(commonDirs)(cCtx)
+				},
+			},
 		},
 	}
 
