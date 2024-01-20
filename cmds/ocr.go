@@ -18,6 +18,16 @@ import (
 
 const MaxConversions = 25
 
+// OcrImages
+// TODO 1. Reuse client, no need to re-create. Just SetImage for each
+// TODO 2. Error Groups golang.org/x/sync/errgroup
+// Instead of sending errors from goroutines to the main go routine
+// TODO 3. Batch or Async IO operations - batch opening/closing files or async
+// TODO 4. Buffered channels for done and failed chans
+// TODO 5. Don't double-loop over the images
+// TODO 6. Logging in a tight loop can be a performance hit
+// Aggregate logs and use less frequently. Probably log per n number of files completed
+// TODO 7. Parallel write files
 func OcrImages(commonDirs *config.CommonDirs) model.CliFunc {
 	return func(c *cli.Context) error {
 		limit := c.Int("limit")
