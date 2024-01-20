@@ -154,10 +154,20 @@ func main() {
 				},
 			},
 			{
-				Name:  "test-ocr",
-				Usage: "test ocr to tsv",
+				Name:  "ocr-images",
+				Usage: "ocr images to tsv",
+				UsageText: "ocr images to tsv\n" +
+					"   disclosurecli ocr-images\n",
 				Action: func(cCtx *cli.Context) error {
 					return cmds.OcrImages(commonDirs)(cCtx)
+				},
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:    "limit",
+						Aliases: []string{"l"},
+						Usage:   "Limit the number of images to process",
+						Value:   0,
+					},
 				},
 			},
 		},

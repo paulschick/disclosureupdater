@@ -30,6 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.26.6 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/gocarina/gocsv v0.0.0-20231116093920-b87c2d0e983a // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/otiai10/gosseract/v2 v2.4.1 // indirect

@@ -15,6 +15,7 @@ type CommonDirs struct {
 	ImageFolder       string
 	OcrFolder         string
 	TestRotation      string
+	CsvFolder         string
 }
 
 func NewCommonDirs(baseFolder string) *CommonDirs {
@@ -27,6 +28,7 @@ func NewCommonDirs(baseFolder string) *CommonDirs {
 		ImageFolder:       path.Join(dataFolder, "images"),
 		OcrFolder:         path.Join(dataFolder, "ocr"),
 		TestRotation:      path.Join(dataFolder, "test-rotation"),
+		CsvFolder:         path.Join(dataFolder, "csv"),
 	}
 }
 
@@ -48,6 +50,10 @@ func (c *CommonDirs) CreateDirectories() error {
 		return err
 	}
 	err = util.TryCreateDirectories(c.TestRotation)
+	if err != nil {
+		return err
+	}
+	err = util.TryCreateDirectories(c.CsvFolder)
 	if err != nil {
 		return err
 	}
