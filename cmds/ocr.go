@@ -10,6 +10,7 @@ import (
 	"github.com/paulschick/disclosureupdater/model"
 	"github.com/urfave/cli/v2"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -319,4 +320,53 @@ func (i *ImageExtractor) WriteResults(results []*model.OcrResult) error {
 		return err
 	}
 	return nil
+}
+
+type NestedIterator interface {
+	HasNext() bool
+	GetNext() string
+}
+
+type ImageIterator struct {
+	BaseDir       string
+	SubDirs       []fs.DirEntry
+	CurrentDir    string
+	CurrentImages []fs.DirEntry
+	CurrentIdx    int
+	SubDirIdx     int
+}
+
+func NewImageIterator(baseDir string) (*ImageIterator, error) {
+	subDirs, err := os.ReadDir(baseDir)
+	if err != nil {
+		return nil, err
+	}
+	return &ImageIterator{
+		BaseDir:    baseDir,
+		SubDirs:    subDirs,
+		CurrentIdx: -1,
+		SubDirIdx:  0,
+	}, nil
+}
+
+func (it *ImageIterator) HasNext() bool {
+	for (it.CurrentIdx+1 >= len(it.CurrentImages) || len(it.CurrentImages) == 0) && it.SubDirIdx < len(it.SubDirs) {
+		it.CurrentDir = filepath.Join(it.BaseDir, it.SubDirs[it.SubDirIdx].Name())
+		var err error
+		it.CurrentImages, err = os.ReadDir(it.CurrentDir)
+		if err != nil {
+			return false // Error handling can be more sophisticated here
+		}
+		it.CurrentIdx = -1
+		it.SubDirIdx++
+	}
+	return it.CurrentIdx+1 < len(it.CurrentImages)
+}
+
+func (it *ImageIterator) GetNext() string {
+	if it.HasNext() {
+		it.CurrentIdx++
+		return filepath.Join(it.CurrentDir, it.CurrentImages[it.CurrentIdx].Name())
+	}
+	return "" // or handle the "no more images" case more explicitly
 }
