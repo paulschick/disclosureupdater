@@ -181,22 +181,6 @@ func extractImageToCsvIfNotExists(imagePath, csvPath string) (bool, error) {
 	return false, nil
 }
 
-type OcrResult struct {
-	LineNum    int     `csv:"lineNum"`
-	WordNum    int     `csv:"wordNum"`
-	Word       string  `csv:"word"`
-	Confidence float64 `csv:"confidence"`
-}
-
-func NewOcrResult(box gosseract.BoundingBox) *OcrResult {
-	return &OcrResult{
-		LineNum:    box.LineNum,
-		WordNum:    box.WordNum,
-		Word:       strings.ReplaceAll(strings.ReplaceAll(box.Word, "\n", ""), " ", ""),
-		Confidence: box.Confidence,
-	}
-}
-
 func initializeClient(imagePath string) (*gosseract.Client, error) {
 	var err error
 	client := gosseract.NewClient()
@@ -218,16 +202,121 @@ func initializeClient(imagePath string) (*gosseract.Client, error) {
 	return client, nil
 }
 
-func extractOcrResults(client *gosseract.Client) []*OcrResult {
+func extractOcrResults(client *gosseract.Client) []*model.OcrResult {
 	out, err := client.GetBoundingBoxesVerbose()
 	if err != nil {
 		fmt.Printf("Error getting bounding boxes: %s\n", err.Error())
 		return nil
 	}
-	results := make([]*OcrResult, 0)
+	results := make([]*model.OcrResult, 0)
 	for _, box := range out {
-		result := NewOcrResult(box)
+		result := model.NewOcrResult(box)
 		results = append(results, result)
 	}
 	return results
+}
+
+type TessClient struct {
+	TessDataPrefix string
+	Language       string
+	ImagePath      string
+	Client         *gosseract.Client
+}
+
+func NewTessClientDefault() (*TessClient, error) {
+	var err error
+	lang := "eng"
+	dataPrefix := "/usr/share/tesseract-ocr/5/tessdata_best-4.1.0"
+
+	client := gosseract.NewClient()
+	err = client.SetLanguage(lang)
+	if err != nil {
+		return nil, err
+	}
+	err = client.SetTessdataPrefix(dataPrefix)
+	if err != nil {
+		return nil, err
+	}
+	return &TessClient{
+		TessDataPrefix: dataPrefix,
+		Language:       lang,
+		Client:         client,
+	}, nil
+}
+
+func (t *TessClient) ExtractImageToResults(imagePath string) ([]*model.OcrResult, error) {
+	var err error
+	err = t.Client.SetImage(imagePath)
+	if err != nil {
+		return nil, err
+	}
+	out, err := t.Client.GetBoundingBoxesVerbose()
+	if err != nil {
+		return nil, err
+	}
+	results := make([]*model.OcrResult, len(out))
+	for i, box := range out {
+		results[i] = model.NewOcrResult(box)
+	}
+	return results, nil
+}
+
+type ImageExtractor struct {
+	TessClient *TessClient
+	ImagePath  string
+	CsvPath    string
+	CommonDirs *config.CommonDirs
+}
+
+func NewImageExtractor(tessClient *TessClient, imagePath string, commonDirs *config.CommonDirs) *ImageExtractor {
+	return &ImageExtractor{
+		TessClient: tessClient,
+		ImagePath:  imagePath,
+		CommonDirs: commonDirs,
+		CsvPath:    filepath.Join(commonDirs.CsvFolder, csvPathFromImagePath(imagePath)),
+	}
+}
+
+func (i *ImageExtractor) CsvExists() (bool, error) {
+	_, err := os.Stat(i.CsvPath)
+	if err == nil {
+		return true, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	return false, nil
+}
+
+func (i *ImageExtractor) ExtractIfNotExists() ([]*model.OcrResult, error) {
+	if exists, err := i.CsvExists(); err != nil {
+		return nil, err
+	} else if exists {
+		return nil, nil
+	}
+	results, err := i.TessClient.ExtractImageToResults(i.ImagePath)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (i *ImageExtractor) WriteResults(results []*model.OcrResult) error {
+	gocsv.SetCSVWriter(func(out io.Writer) *gocsv.SafeCSVWriter {
+		writer := csv.NewWriter(out)
+		writer.Comma = '\t'
+		return gocsv.NewSafeCSVWriter(writer)
+	})
+	csvFile, err := os.OpenFile(i.CsvPath, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = gocsv.MarshalFile(results, csvFile)
+	if err != nil {
+		return err
+	}
+	err = csvFile.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
