@@ -36,8 +36,62 @@ func OcrImages(commonDirs *config.CommonDirs) model.CliFunc {
 			limit = math.MaxInt
 		}
 		fmt.Printf("Limiting to %d\n", limit)
-
 		imageDir := commonDirs.ImageFolder
+
+		// ---- Example Implementation ----- //
+
+		//tessClient, err := NewTessClientDefault()
+		//if err != nil {
+		//	fmt.Printf("Error creating new TessClient: %s\n", err.Error())
+		//	return err
+		//}
+		//
+		//imageIterator, err := NewImageIterator(imageDir)
+		//if err != nil {
+		//	fmt.Printf("Error creating new ImageIterator: %s\n", err.Error())
+		//	return err
+		//}
+		//
+		//
+		//// Example Implementation
+		//for imageIterator.HasNext() {
+		//	var results []*model.OcrResult
+		//	var extractor *ImageExtractor
+		//	imagePath := imageIterator.GetNext()
+		//
+		//	if imagePath == "" {
+		//		fmt.Printf("Error getting next image path.\nIteration complete\n")
+		//		return nil
+		//	}
+		//
+		//	extractor = NewImageExtractor(tessClient, imagePath, commonDirs)
+		//	results, err = extractor.ExtractIfNotExists()
+		//
+		//	if err != nil {
+		//		fmt.Printf("Error extracting image to csv: %s\n", err.Error())
+		//		fmt.Printf("Failed Image Path: %s\n", imagePath)
+		//		return err
+		//	}
+		//
+		//	if results == nil {
+		//		fmt.Printf("Skipping %s\n", imagePath)
+		//		continue
+		//	}
+		//
+		//	err = extractor.WriteResults(results)
+		//	if err != nil {
+		//		fmt.Printf("Error writing results: %s\n", err.Error())
+		//		fmt.Printf("Failed Image Path: %s\n", imagePath)
+		//		return err
+		//	}
+		//
+		//	fmt.Printf("Created %s\n", extractor.CsvPath)
+		//}
+
+		// ---- End Example ----- //
+
+		// ---- Original Working Code ----- //
+
 		imageSubDirs, err := os.ReadDir(imageDir)
 		if err != nil {
 			return err
