@@ -8,15 +8,17 @@ import (
 	"go.uber.org/zap"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
 
 const (
-	MaxWorkers = 12
-	BatchSize  = 250
+	CpuUtilization = 0.7
+	BatchSize      = 100
 )
 
 type ConversionResult struct {
@@ -80,8 +82,7 @@ func (p *PdfConverterV2) ConvertPagesToImages(extension string) ([]ConversionRes
 
 func WriteImage(result ConversionResult) error {
 	logger.Logger.Info("Writing image",
-		zap.String("image_name", result.ImageName),
-		zap.String("image_dir", result.ImageDir))
+		zap.String("image_name", result.ImageName))
 
 	var err error
 	var f *os.File
@@ -103,8 +104,7 @@ func WriteImage(result ConversionResult) error {
 	result.Image = nil
 
 	logger.Logger.Info("Finished writing image",
-		zap.String("image_name", result.ImageName),
-		zap.String("image_dir", result.ImageDir))
+		zap.String("image_name", result.ImageName))
 	return f.Close()
 }
 
@@ -114,7 +114,7 @@ func getPdfEntries(slice bool, pdfDir string) ([]os.DirEntry, error) {
 		return nil, err
 	}
 	if slice {
-		return pdfs[:500], nil
+		return pdfs[:200], nil
 	}
 	return pdfs, nil
 }
@@ -123,19 +123,27 @@ func BatchPdfToPng(pdfDir, imageDir string) error {
 	start := time.Now()
 	logger.Logger.Info("Starting batch PDF to PNG conversion")
 
-	pdfs, err := getPdfEntries(true, pdfDir)
+	// Rough calculation for workers based on number of CPUs
+	// Tuned to one system currently
+	numCpus := runtime.NumCPU()
+	maxWorkers := int(math.Floor(float64(numCpus) * CpuUtilization))
+
+	// NOTE change to true for testing slices
+	pdfs, err := getPdfEntries(false, pdfDir)
 	if err != nil {
 		return err
 	}
-	totalPdfs := len(pdfs)
 
-	for startIdx := 0; startIdx < totalPdfs; startIdx += BatchSize {
-		end := startIdx + BatchSize
-		if end > totalPdfs {
-			end = totalPdfs
+	batches, err := calculateBatches(pdfs, pdfDir)
+	if err != nil {
+		return err
+	}
+
+	for i, batch := range batches {
+		if i > 0 {
+			batches[i-1] = nil
 		}
-		batch := pdfs[startIdx:end]
-		processBatch(batch, pdfDir, imageDir, MaxWorkers)
+		processBatch(batch, pdfDir, imageDir, maxWorkers)
 	}
 
 	elapsed := time.Since(start)
@@ -170,6 +178,7 @@ func processBatch(batch []os.DirEntry, pdfDir, imageDir string, poolSize int) {
 			logger.Logger.Info("Finished batch PDF to PNG conversion",
 				zap.Int("Task ID", i),
 				zap.String("pdf_name", entry.Name()))
+			data = nil
 			return nil
 		}, batch[i], i)
 		allTasks[i] = task
@@ -182,4 +191,49 @@ func processBatch(batch []os.DirEntry, pdfDir, imageDir string, poolSize int) {
 	for i := range allTasks {
 		allTasks[i] = nil
 	}
+}
+
+func calculateBatches(pdfs []os.DirEntry, pdfDir string) ([][]os.DirEntry, error) {
+	var batches [][]os.DirEntry
+	var currentBatch []os.DirEntry
+	var currentPageCount int
+
+	for _, pdf := range pdfs {
+		pageCount, err := numberOfPagesInPdf(filepath.Join(pdfDir, pdf.Name()))
+		if err != nil {
+			return nil, err
+		}
+		if currentPageCount+pageCount > BatchSize {
+			batches = append(batches, currentBatch)
+			currentBatch = nil
+			currentPageCount = 0
+		}
+
+		currentBatch = append(currentBatch, pdf)
+		currentPageCount += pageCount
+	}
+
+	if len(currentBatch) > 0 {
+		batches = append(batches, currentBatch)
+	}
+
+	return batches, nil
+}
+
+func numberOfPagesInPdf(pdfPath string) (int, error) {
+	doc, err := fitz.New(pdfPath)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		closeErr := doc.Close()
+		if closeErr != nil {
+			logger.Logger.Error("Error closing pdf",
+				zap.String("pdf_path", pdfPath),
+				zap.Error(closeErr))
+		}
+	}()
+
+	return doc.NumPage(), nil
 }
