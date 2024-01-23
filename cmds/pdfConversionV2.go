@@ -3,6 +3,8 @@ package cmds
 import (
 	"fmt"
 	"github.com/gen2brain/go-fitz"
+	"github.com/paulschick/disclosureupdater/logger"
+	"go.uber.org/zap"
 	"image"
 	"image/png"
 	"os"
@@ -71,6 +73,10 @@ func (p *PdfConverterV2) ConvertPagesToImages(extension string) ([]ConversionRes
 }
 
 func WriteImage(result ConversionResult) error {
+	logger.Logger.Info("Writing image",
+		zap.String("image_name", result.ImageName),
+		zap.String("image_dir", result.ImageDir))
+
 	var err error
 	var f *os.File
 
@@ -88,10 +94,14 @@ func WriteImage(result ConversionResult) error {
 		return err
 	}
 
+	logger.Logger.Info("Finished writing image",
+		zap.String("image_name", result.ImageName),
+		zap.String("image_dir", result.ImageDir))
 	return f.Close()
 }
 
 func BatchPdfToPng(pdfDir, imageDir string) error {
+	logger.Logger.Info("Starting batch PDF to PNG conversion")
 	pdfs, err := os.ReadDir(pdfDir)
 	if err != nil {
 		return err
@@ -135,5 +145,6 @@ func BatchPdfToPng(pdfDir, imageDir string) error {
 
 	wg.Wait()
 	writeWg.Wait()
+	logger.Logger.Info("Finished batch PDF to PNG conversion")
 	return nil
 }
