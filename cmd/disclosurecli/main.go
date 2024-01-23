@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/cmds"
 	"github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/logger"
 	"github.com/urfave/cli/v2"
-	"log"
+	"go.uber.org/zap"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 )
@@ -14,7 +17,18 @@ import (
 // https://github.com/spf13/viper
 func main() {
 	var err error
+	logger.InitLogger()
 	commonDirs := getCommonDirs()
+
+	log := logger.Logger
+
+	defer func() {
+		_ = log.Sync()
+	}()
+
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
@@ -33,7 +47,7 @@ func main() {
 				UsageText: "Create the necessary directories and configuration files. " +
 					"Use this command to create the initial environment.",
 				Action: func(cCtx *cli.Context) error {
-					log.Println("Initializing environment")
+					log.Info("Initializing environment")
 					return initialize(commonDirs)
 				},
 			},
@@ -133,7 +147,9 @@ func main() {
 				UsageText: "Convert PDFs to PNGs\n" +
 					"   disclosurecli convert-pdfs\n",
 				Action: func(cCtx *cli.Context) error {
-					return cmds.PdfToPng(commonDirs)(cCtx)
+					pdfDir := commonDirs.DisclosuresFolder
+					imageDir := commonDirs.ImageFolder
+					return cmds.BatchPdfToPng(pdfDir, imageDir)
 				},
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
@@ -175,7 +191,7 @@ func main() {
 
 	err = runApp(app)
 	if err != nil {
-		log.Fatalf("Error running app: %s", err)
+		log.Error("Error running app", zap.Error(err))
 	}
 }
 

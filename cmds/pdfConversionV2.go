@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"github.com/gen2brain/go-fitz"
 	"github.com/paulschick/disclosureupdater/logger"
+	"github.com/paulschick/disclosureupdater/workerpool"
 	"go.uber.org/zap"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"sync"
+	"time"
+)
+
+const (
+	MaxWorkers = 12
+	BatchSize  = 250
 )
 
 type ConversionResult struct {
@@ -67,6 +72,7 @@ func (p *PdfConverterV2) ConvertPagesToImages(extension string) ([]ConversionRes
 			ImageName: imageName,
 			ImageDir:  p.ImageDir,
 		})
+		img = nil
 	}
 
 	return results, err
@@ -94,57 +100,86 @@ func WriteImage(result ConversionResult) error {
 		return err
 	}
 
+	result.Image = nil
+
 	logger.Logger.Info("Finished writing image",
 		zap.String("image_name", result.ImageName),
 		zap.String("image_dir", result.ImageDir))
 	return f.Close()
 }
 
-func BatchPdfToPng(pdfDir, imageDir string) error {
-	logger.Logger.Info("Starting batch PDF to PNG conversion")
+func getPdfEntries(slice bool, pdfDir string) ([]os.DirEntry, error) {
 	pdfs, err := os.ReadDir(pdfDir)
+	if err != nil {
+		return nil, err
+	}
+	if slice {
+		return pdfs[:500], nil
+	}
+	return pdfs, nil
+}
+
+func BatchPdfToPng(pdfDir, imageDir string) error {
+	start := time.Now()
+	logger.Logger.Info("Starting batch PDF to PNG conversion")
+
+	pdfs, err := getPdfEntries(true, pdfDir)
 	if err != nil {
 		return err
 	}
-	pdfs = pdfs[:100]
+	totalPdfs := len(pdfs)
 
-	numCpu := runtime.NumCPU()
-	maxJobs := numCpu * 2
-	waitChan := make(chan struct{}, maxJobs)
-	var wg sync.WaitGroup
-	var writeWg sync.WaitGroup
-
-	for _, pdf := range pdfs {
-		waitChan <- struct{}{}
-		wg.Add(1)
-		go func(pdf os.DirEntry) {
-			defer wg.Done()
-
-			pdfConverter := NewPdfConverterV2(filepath.Join(pdfDir, pdf.Name()), imageDir)
-			results, err := pdfConverter.ConvertPagesToImages(".png")
-			if err != nil {
-				// TODO - handle error
-				fmt.Println(err)
-			}
-
-			for _, result := range results {
-				writeWg.Add(1)
-				go func(res ConversionResult) {
-					defer writeWg.Done()
-					if err = WriteImage(res); err != nil {
-						// TODO - handle error
-						fmt.Printf("error writing image %s\n", res.ImageName)
-						fmt.Println(err)
-					}
-				}(result)
-			}
-
-			<-waitChan
-		}(pdf)
+	for startIdx := 0; startIdx < totalPdfs; startIdx += BatchSize {
+		end := startIdx + BatchSize
+		if end > totalPdfs {
+			end = totalPdfs
+		}
+		batch := pdfs[startIdx:end]
+		processBatch(batch, pdfDir, imageDir, MaxWorkers)
 	}
 
-	wg.Wait()
-	writeWg.Wait()
-	logger.Logger.Info("Finished batch PDF to PNG conversion")
+	elapsed := time.Since(start)
+	logger.Logger.Info("Finished batch PDF to PNG conversion",
+		zap.Duration("elapsed", elapsed))
 	return nil
+}
+
+func processBatch(batch []os.DirEntry, pdfDir, imageDir string, poolSize int) {
+	batchLen := len(batch)
+	allTasks := make([]*workerpool.Task, batchLen)
+	for i := 0; i < batchLen; i++ {
+		task := workerpool.NewTask(func(data interface{}) error {
+			entry := data.(os.DirEntry)
+			pdfConverter := NewPdfConverterV2(filepath.Join(pdfDir, entry.Name()), imageDir)
+			results, err := pdfConverter.ConvertPagesToImages(".png")
+			pdfConverter = nil
+			if err != nil {
+				logger.Logger.Error("error converting pdf to images", zap.Error(err))
+				return err
+			}
+			// TODO - Create a new task for each image
+			for _, result := range results {
+				if err = WriteImage(result); err != nil {
+					logger.Logger.Error("error writing image",
+						zap.String("image_name", result.ImageName),
+						zap.String("image_dir", result.ImageDir),
+						zap.Error(err))
+					return err
+				}
+			}
+			logger.Logger.Info("Finished batch PDF to PNG conversion",
+				zap.Int("Task ID", i),
+				zap.String("pdf_name", entry.Name()))
+			return nil
+		}, batch[i], i)
+		allTasks[i] = task
+	}
+
+	pool := workerpool.NewPool(allTasks, poolSize, batchLen)
+	pool.Run()
+
+	// Clear the slice for garbage collection
+	for i := range allTasks {
+		allTasks[i] = nil
+	}
 }
