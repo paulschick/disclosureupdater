@@ -18,6 +18,8 @@ type CommonDirs struct {
 	CsvFolder         string
 }
 
+// NewCommonDirs
+// TODO - allow these to be changed
 func NewCommonDirs(baseFolder string) *CommonDirs {
 	dataFolder := path.Join(baseFolder, "data")
 	return &CommonDirs{

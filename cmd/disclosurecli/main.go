@@ -186,6 +186,38 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "update-folders",
+				Usage: "Update the data folders\n",
+				UsageText: "This command does not update the locations " +
+					"of the folders, they will remain in data/.\n" +
+					"This command updates the names of the folders used, and creates any new folders passed in this command if they don't exist.",
+				Action: func(cCtx *cli.Context) error {
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name: "images",
+						Usage: "Update the images folder\n" +
+							"   disclosurecli update-folders --images <path>\n",
+					},
+					&cli.StringFlag{
+						Name: "disclosures",
+						Usage: "Update the disclosures folder\n" +
+							"   disclosurecli update-folders --disclosures <path>\n",
+					},
+					&cli.StringFlag{
+						Name: "ocr",
+						Usage: "Update the ocr folder\n" +
+							"   disclosurecli update-folders --ocr <path>\n",
+					},
+					&cli.StringFlag{
+						Name: "csv",
+						Usage: "Update the csv folder\n" +
+							"   disclosurecli update-folders --csv <path>\n",
+					},
+				},
+			},
 		},
 	}
 
