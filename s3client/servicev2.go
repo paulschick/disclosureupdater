@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	conf "github.com/paulschick/disclosureupdater/config"
+	"github.com/paulschick/disclosureupdater/model"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,10 +21,10 @@ import (
 
 type S3ServiceV2 struct {
 	Client    *s3.Client
-	S3Profile conf.S3Profile
+	S3Profile model.S3Profile
 }
 
-func NewS3ServiceV2(s3Profile conf.S3Profile) (*S3ServiceV2, error) {
+func NewS3ServiceV2(s3Profile model.S3Profile) (*S3ServiceV2, error) {
 	endpoint := aws.Endpoint{
 		URL: s3Profile.GetHostname(),
 	}
@@ -36,8 +37,8 @@ func NewS3ServiceV2(s3Profile conf.S3Profile) (*S3ServiceV2, error) {
 	var cfg aws.Config
 	var err error
 	if s3Profile.StaticAuthentication() {
-		apiKey := s3Profile.(*conf.S3StaticProfile).S3ApiKey
-		apiSecret := s3Profile.(*conf.S3StaticProfile).S3SecretKey
+		apiKey := s3Profile.(*model.S3StaticProfile).S3ApiKey
+		apiSecret := s3Profile.(*model.S3StaticProfile).S3SecretKey
 		cfg, err = config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithRegion(s3Profile.GetRegion()),

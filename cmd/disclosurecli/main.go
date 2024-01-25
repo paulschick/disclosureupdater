@@ -5,12 +5,12 @@ import (
 	"github.com/paulschick/disclosureupdater/cmds"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/logger"
+	"github.com/paulschick/disclosureupdater/model"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"path"
 )
 
 // main
@@ -231,12 +231,8 @@ func runApp(app *cli.App) error {
 	return app.Run(os.Args)
 }
 
-func getBaseDir() string {
-	return path.Join(os.Getenv("HOME"), ".disclosurecli")
-}
-
 func getCommonDirs() *config.CommonDirs {
-	return config.NewCommonDirs(getBaseDir())
+	return config.NewCommonDirs(config.GetBaseFolder())
 }
 
 func initialize(commonDirs *config.CommonDirs) error {
@@ -246,7 +242,7 @@ func initialize(commonDirs *config.CommonDirs) error {
 	if err != nil {
 		return err
 	}
-	s3Default := config.S3DefaultProfile{
+	s3Default := model.S3DefaultProfile{
 		S3Bucket:   "<bucket>",
 		S3Region:   "<region>",
 		S3Hostname: "<hostname>",

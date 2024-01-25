@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/magiconair/properties/assert"
+	"github.com/paulschick/disclosureupdater/model"
 	"path"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestCommonDirs_CreateDirectories(t *testing.T) {
 }
 
 func TestS3Profile(t *testing.T) {
-	s3Profile := &S3DefaultProfile{
+	s3Profile := &model.S3DefaultProfile{
 		S3Bucket:   "bucket",
 		S3Region:   "region",
 		S3Hostname: "hostname",
@@ -39,8 +40,8 @@ func TestS3Profile(t *testing.T) {
 }
 
 func TestS3ProfileStaticAuthentication(t *testing.T) {
-	S3Profile := &S3StaticProfile{
-		S3DefaultProfile: S3DefaultProfile{
+	S3Profile := &model.S3StaticProfile{
+		S3DefaultProfile: model.S3DefaultProfile{
 			S3Bucket:   "bucket",
 			S3Region:   "region",
 			S3Hostname: "hostname",
@@ -58,7 +59,7 @@ func TestS3ProfileStaticAuthentication(t *testing.T) {
 
 func TestBuildViper(t *testing.T) {
 	commonDirs := NewCommonDirs("/tmp")
-	s3Profile := &S3DefaultProfile{
+	s3Profile := &model.S3DefaultProfile{
 		S3Bucket:   "bucket",
 		S3Region:   "region",
 		S3Hostname: "hostname",
