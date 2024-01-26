@@ -5,7 +5,6 @@ import (
 	"github.com/paulschick/disclosureupdater/util"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
-	"os"
 	"path"
 )
 
@@ -18,13 +17,6 @@ type CommonDirs struct {
 	OcrFolder         string
 	CsvFolder         string
 }
-
-const (
-	DefaultImageFolder       = "images"
-	DefaultDisclosuresFolder = "disclosures"
-	DefaultOcrFolder         = "ocr"
-	DefaultCsvFolder         = "csv"
-)
 
 func NewCommonDirsFromCtx(c *cli.Context) *CommonDirs {
 	dataFolder := GetDataFolder()
@@ -55,14 +47,6 @@ func NewCommonDirsFromCtx(c *cli.Context) *CommonDirs {
 	}
 }
 
-func GetBaseFolder() string {
-	return path.Join(os.Getenv("HOME"), ".disclosurecli")
-}
-
-func GetDataFolder() string {
-	return path.Join(GetBaseFolder(), "data")
-}
-
 // NewCommonDirs
 // TODO - allow these to be changed
 func NewCommonDirs(baseFolder string) *CommonDirs {
@@ -79,69 +63,33 @@ func NewCommonDirs(baseFolder string) *CommonDirs {
 }
 
 func NewCommonDirsFromConfig() (*CommonDirs, error) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigFile(path.Join(GetBaseFolder(), "config.yaml"))
-	err := v.ReadInConfig()
+	v, err := InitializeViper()
 	if err != nil {
 		return nil, err
 	}
 	profile := "default"
-	dataFolder := GetDataFolder()
-	s3Folder := path.Join(dataFolder, "s3")
-	disclosuresFolder := v.GetString(profile + ".data.disclosuresFolder")
-	if disclosuresFolder == "" {
-		disclosuresFolder = path.Join(dataFolder, "disclosures")
-	}
-	imageFolder := v.GetString(profile + ".data.imagesFolder")
-	if imageFolder == "" {
-		imageFolder = path.Join(dataFolder, "images")
-	}
-	ocrFolder := v.GetString(profile + ".data.ocrFolder")
-	if ocrFolder == "" {
-		ocrFolder = path.Join(dataFolder, "ocr")
-	}
-	csvFolder := v.GetString(profile + ".data.csvFolder")
-	if csvFolder == "" {
-		csvFolder = path.Join(dataFolder, "csv")
-	}
-	return &CommonDirs{
-		BaseFolder:        GetBaseFolder(),
-		DataFolder:        dataFolder,
-		S3Folder:          s3Folder,
-		DisclosuresFolder: disclosuresFolder,
-		ImageFolder:       imageFolder,
-		OcrFolder:         ocrFolder,
-		CsvFolder:         csvFolder,
-	}, nil
+	folderBuilder := NewViperFolderBuilder(v, profile)
+	return folderBuilder.BuildCommonDirs(), nil
 }
 
 func (c *CommonDirs) CreateDirectories() error {
-	err := util.TryCreateDirectories(c.S3Folder)
-	if err != nil {
-		return err
+	dirs := []string{
+		c.S3Folder,
+		c.DisclosuresFolder,
+		c.ImageFolder,
+		c.OcrFolder,
+		c.CsvFolder,
 	}
-	err = util.TryCreateDirectories(c.DisclosuresFolder)
-	if err != nil {
-		return err
-	}
-	err = util.TryCreateDirectories(c.ImageFolder)
-	if err != nil {
-		return err
-	}
-	err = util.TryCreateDirectories(c.OcrFolder)
-	if err != nil {
-		return err
-	}
-	err = util.TryCreateDirectories(c.CsvFolder)
-	if err != nil {
-		return err
+	for _, dir := range dirs {
+		if err := util.TryCreateDirectories(dir); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func S3ProfileFromConfig(dirs *CommonDirs, profile string) model.S3Profile {
-	err, v := ViperFromConfig(dirs)
+func S3ProfileFromConfig(profile string) model.S3Profile {
+	v, err := InitializeViper()
 	if err != nil {
 		panic(err)
 	}
@@ -190,17 +138,6 @@ func S3ProfileFromCtx(c *cli.Context) model.S3Profile {
 	}
 }
 
-func ViperFromConfig(dirs *CommonDirs) (error, *viper.Viper) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigFile(path.Join(dirs.BaseFolder, "config.yaml"))
-	err := v.ReadInConfig()
-	if err != nil {
-		return err, nil
-	}
-	return nil, v
-}
-
 func BuildViper(profile string, dirs *CommonDirs, s3Profile model.S3Profile) *viper.Viper {
 	v := viper.New()
 	v.SetConfigType("yaml")
@@ -241,4 +178,14 @@ func UpdateS3Config(s3Profile model.S3Profile, dirs *CommonDirs) error {
 		return err
 	}
 	return nil
+}
+
+func InitializeViper() (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(path.Join(GetBaseFolder(), GetConfigFileName()))
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
