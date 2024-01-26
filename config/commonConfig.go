@@ -62,16 +62,6 @@ func NewCommonDirs(baseFolder string) *CommonDirs {
 	}
 }
 
-func NewCommonDirsFromConfig() (*CommonDirs, error) {
-	v, err := InitializeViper()
-	if err != nil {
-		return nil, err
-	}
-	profile := "default"
-	folderBuilder := NewViperFolderBuilder(v, profile)
-	return folderBuilder.BuildCommonDirs(), nil
-}
-
 func (c *CommonDirs) CreateDirectories() error {
 	dirs := []string{
 		c.S3Folder,

@@ -45,46 +45,48 @@ func (c *ConfigurationBuilder) extractValue(ctx *cli.Context, ctxKey, configKey,
 		if value == "" {
 			value = defaultValue
 		}
+	} else {
+		value = path.Join(GetDataFolder(), value)
 	}
 	return value
 }
 
 func (c *ConfigurationBuilder) initialize(ctx *cli.Context) {
-	dataFolderKey := c.profile + "dataFolder"
+	dataFolderKey := c.profile + ".folders.dataFolder"
 	dataFolderValue := GetDataFolder()
 	c.dataFolder = ConfigurationValue{
 		Key:   dataFolderKey,
 		Value: dataFolderValue,
 	}
-	imageFolderKey := c.profile + "imageFolder"
+	imageFolderKey := c.profile + ".folders.imageFolder"
 	imageFolderValue := c.extractValue(ctx, "images", imageFolderKey,
 		path.Join(dataFolderValue, DefaultImageFolder))
 	c.imageFolder = ConfigurationValue{
 		Key:   imageFolderKey,
 		Value: imageFolderValue,
 	}
-	disclosuresFolderKey := c.profile + "disclosuresFolder"
+	disclosuresFolderKey := c.profile + ".folders.disclosuresFolder"
 	disclosuresFolderValue := c.extractValue(ctx, "disclosures", disclosuresFolderKey,
 		path.Join(dataFolderValue, DefaultDisclosuresFolder))
 	c.disclosuresFolder = ConfigurationValue{
 		Key:   disclosuresFolderKey,
 		Value: disclosuresFolderValue,
 	}
-	ocrFolderKey := c.profile + "ocrFolder"
+	ocrFolderKey := c.profile + ".folders.ocrFolder"
 	ocrFolderValue := c.extractValue(ctx, "ocr", ocrFolderKey,
 		path.Join(dataFolderValue, DefaultOcrFolder))
 	c.ocrFolder = ConfigurationValue{
 		Key:   ocrFolderKey,
 		Value: ocrFolderValue,
 	}
-	csvFolderKey := c.profile + "csvFolder"
+	csvFolderKey := c.profile + ".folders.csvFolder"
 	csvFolderValue := c.extractValue(ctx, "csv", csvFolderKey,
 		path.Join(dataFolderValue, DefaultCsvFolder))
 	c.csvFolder = ConfigurationValue{
 		Key:   csvFolderKey,
 		Value: csvFolderValue,
 	}
-	s3FolderKey := c.profile + "s3Folder"
+	s3FolderKey := c.profile + ".folders.s3Folder"
 	s3FolderValue := path.Join(dataFolderValue, DefaultS3Folder)
 	c.s3Folder = ConfigurationValue{
 		Key:   s3FolderKey,
