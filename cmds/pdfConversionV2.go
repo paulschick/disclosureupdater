@@ -3,8 +3,9 @@ package cmds
 import (
 	"fmt"
 	"github.com/gen2brain/go-fitz"
-	"github.com/paulschick/disclosureupdater/logger"
-	"github.com/paulschick/disclosureupdater/workerpool"
+	"github.com/paulschick/disclosureupdater/common/constants"
+	"github.com/paulschick/disclosureupdater/common/logger"
+	workerpool2 "github.com/paulschick/disclosureupdater/common/workerpool"
 	"go.uber.org/zap"
 	"image"
 	"image/png"
@@ -14,11 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-)
-
-const (
-	CpuUtilization = 0.7
-	BatchSize      = 100
 )
 
 type ConversionResult struct {
@@ -126,7 +122,7 @@ func BatchPdfToPng(pdfDir, imageDir string) error {
 	// Rough calculation for workers based on number of CPUs
 	// Tuned to one system currently
 	numCpus := runtime.NumCPU()
-	maxWorkers := int(math.Floor(float64(numCpus) * CpuUtilization))
+	maxWorkers := int(math.Floor(float64(numCpus) * constants.CpuUtilization))
 
 	// NOTE change to true for testing slices
 	pdfs, err := getPdfEntries(false, pdfDir)
@@ -154,9 +150,9 @@ func BatchPdfToPng(pdfDir, imageDir string) error {
 
 func processBatch(batch []os.DirEntry, pdfDir, imageDir string, poolSize int) {
 	batchLen := len(batch)
-	allTasks := make([]*workerpool.Task, batchLen)
+	allTasks := make([]*workerpool2.Task, batchLen)
 	for i := 0; i < batchLen; i++ {
-		task := workerpool.NewTask(func(data interface{}) error {
+		task := workerpool2.NewTask(func(data interface{}) error {
 			entry := data.(os.DirEntry)
 			pdfConverter := NewPdfConverterV2(filepath.Join(pdfDir, entry.Name()), imageDir)
 			results, err := pdfConverter.ConvertPagesToImages(".png")
@@ -184,7 +180,7 @@ func processBatch(batch []os.DirEntry, pdfDir, imageDir string, poolSize int) {
 		allTasks[i] = task
 	}
 
-	pool := workerpool.NewPool(allTasks, poolSize, batchLen)
+	pool := workerpool2.NewPool(allTasks, poolSize, batchLen)
 	pool.Run()
 
 	// Clear the slice for garbage collection
@@ -203,7 +199,7 @@ func calculateBatches(pdfs []os.DirEntry, pdfDir string) ([][]os.DirEntry, error
 		if err != nil {
 			return nil, err
 		}
-		if currentPageCount+pageCount > BatchSize {
+		if currentPageCount+pageCount > constants.BatchSize {
 			batches = append(batches, currentBatch)
 			currentBatch = nil
 			currentPageCount = 0

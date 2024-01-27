@@ -4,17 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gen2brain/go-fitz"
+	"github.com/paulschick/disclosureupdater/common/constants"
+	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/model"
-	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
 	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-const MaxJobs = 25
 
 type PdfConverter struct {
 	PdfPath      string
@@ -104,7 +103,7 @@ func (p *PdfConverter) ConvertIfNotPresent(extension string) error {
 }
 
 func (p *PdfConverter) CreateImageDir() error {
-	return util.TryCreateDirectories(p.ImageDir)
+	return methods.TryCreateDirectories(p.ImageDir)
 }
 
 func (p *PdfConverter) GetImageName(pageNumber int, extension string) string {
@@ -140,7 +139,7 @@ func PdfToPng(commonDirs *config.CommonDirs) model.CliFunc {
 			pdfConverters = append(pdfConverters, pdfConverter)
 		}
 
-		waitChan := make(chan struct{}, MaxJobs)
+		waitChan := make(chan struct{}, constants.MaxJobs)
 		count := 0
 		done := make(chan bool, len(pdfConverters))
 		errs := make(chan error, len(pdfConverters))

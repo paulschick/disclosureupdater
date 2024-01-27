@@ -5,9 +5,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/paulschick/disclosureupdater/common/constants"
+	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/paulschick/disclosureupdater/common/paths"
 	"github.com/paulschick/disclosureupdater/model"
-	"github.com/paulschick/disclosureupdater/util"
 	"io"
 	"log"
 	"net/http"
@@ -20,12 +21,12 @@ import (
 )
 
 func GenerateZipUrlForYear(year int) string {
-	return strings.Replace(util.ZipUrlTemplate, "{YEAR}", strconv.Itoa(year), 1)
+	return strings.Replace(constants.ZipUrlTemplate, "{YEAR}", strconv.Itoa(year), 1)
 }
 
 func GenerateAllZipUrls() []string {
-	minYear := util.MinYear
-	year := util.CurrentYear()
+	minYear := constants.MinYear
+	year := methods.CurrentYear()
 	numYears := year - minYear + 1
 
 	downloadUrls := make([]string, numYears)
@@ -232,7 +233,7 @@ func DownloadFileBytes(url string) ([]byte, error) {
 func DownloadMultiple(values []*Downloadable) ([]*Downloadable, error) {
 	done := make(chan *Downloadable, len(values))
 	errs := make(chan error, len(values))
-	throttle := time.Tick(time.Second / util.RequestPerSecond)
+	throttle := time.Tick(time.Second / constants.RequestPerSecond)
 	for _, value := range values {
 		go func(value *Downloadable) {
 			<-throttle

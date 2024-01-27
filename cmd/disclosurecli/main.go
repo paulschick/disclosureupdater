@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/paulschick/disclosureupdater/cmds"
+	"github.com/paulschick/disclosureupdater/common/logger"
 	"github.com/paulschick/disclosureupdater/config"
-	"github.com/paulschick/disclosureupdater/logger"
 	"github.com/paulschick/disclosureupdater/model"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"

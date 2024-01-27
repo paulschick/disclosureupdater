@@ -5,14 +5,6 @@ import (
 	"path"
 )
 
-const (
-	DefaultImageFolder       = "images"
-	DefaultDisclosuresFolder = "disclosures"
-	DefaultOcrFolder         = "ocr"
-	DefaultCsvFolder         = "csv"
-	DefaultS3Folder          = "s3"
-)
-
 func GetBaseFolder() string {
 	return path.Join(os.Getenv("HOME"), ".disclosurecli")
 }

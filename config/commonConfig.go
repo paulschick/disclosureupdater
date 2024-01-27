@@ -1,8 +1,9 @@
 package config
 
 import (
+	"github.com/paulschick/disclosureupdater/common/constants"
+	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/paulschick/disclosureupdater/model"
-	"github.com/paulschick/disclosureupdater/util"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"path"
@@ -22,19 +23,19 @@ func NewCommonDirsFromCtx(c *cli.Context) *CommonDirs {
 	dataFolder := GetDataFolder()
 	imagesFolder := c.String("images")
 	if imagesFolder == "" {
-		imagesFolder = path.Join(dataFolder, DefaultImageFolder)
+		imagesFolder = path.Join(dataFolder, constants.DefaultImageFolder)
 	}
 	disclosuresFolder := c.String("disclosures")
 	if disclosuresFolder == "" {
-		disclosuresFolder = path.Join(dataFolder, DefaultDisclosuresFolder)
+		disclosuresFolder = path.Join(dataFolder, constants.DefaultDisclosuresFolder)
 	}
 	ocrFolder := c.String("ocr")
 	if ocrFolder == "" {
-		ocrFolder = path.Join(dataFolder, DefaultOcrFolder)
+		ocrFolder = path.Join(dataFolder, constants.DefaultOcrFolder)
 	}
 	csvFolder := c.String("csv")
 	if csvFolder == "" {
-		csvFolder = path.Join(dataFolder, DefaultCsvFolder)
+		csvFolder = path.Join(dataFolder, constants.DefaultCsvFolder)
 	}
 	return &CommonDirs{
 		BaseFolder:        GetBaseFolder(),
@@ -71,7 +72,7 @@ func (c *CommonDirs) CreateDirectories() error {
 		c.CsvFolder,
 	}
 	for _, dir := range dirs {
-		if err := util.TryCreateDirectories(dir); err != nil {
+		if err := methods.TryCreateDirectories(dir); err != nil {
 			return err
 		}
 	}

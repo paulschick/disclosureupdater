@@ -2,14 +2,12 @@ package model
 
 import (
 	"encoding/xml"
+	"github.com/paulschick/disclosureupdater/common/constants"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 )
-
-const BasePdfUrl = "https://disclosures-clerk.house.gov/public_disc/"
-const BasePdfDir = "disclosures/"
 
 type Member struct {
 	XMLName    xml.Name `xml:"Member"`
@@ -53,9 +51,9 @@ func CreateFinancialDisclosure(xmlPath string) (*FinancialDisclosure, error) {
 
 func (m *Member) BuildPdfUrl() string {
 	if m.FilingType == "P" {
-		return BasePdfUrl + "ptr-pdfs/" + strconv.Itoa(m.Year) + "/" + strconv.Itoa(m.DocId) + ".pdf"
+		return constants.BasePdfUrl + "ptr-pdfs/" + strconv.Itoa(m.Year) + "/" + strconv.Itoa(m.DocId) + ".pdf"
 	} else {
-		return BasePdfUrl + "financial-pdfs/" + strconv.Itoa(m.Year) + "/" + strconv.Itoa(m.DocId) + ".pdf"
+		return constants.BasePdfUrl + "financial-pdfs/" + strconv.Itoa(m.Year) + "/" + strconv.Itoa(m.DocId) + ".pdf"
 	}
 }
 
@@ -73,7 +71,7 @@ func (m *Member) BuildPdfFileName() string {
 }
 
 func (m *Member) BuildPdfFilePath(dataFolder string) string {
-	return dataFolder + "/" + BasePdfDir + m.BuildPdfFileName()
+	return dataFolder + "/" + constants.BasePdfDir + m.BuildPdfFileName()
 }
 
 func (m *Member) PdfFileExists(dataFolder string) bool {

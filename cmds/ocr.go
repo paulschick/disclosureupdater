@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gocarina/gocsv"
 	"github.com/otiai10/gosseract/v2"
+	"github.com/paulschick/disclosureupdater/common/constants"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/model"
 	"github.com/urfave/cli/v2"
@@ -16,8 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-const MaxConversions = 25
 
 // OcrImages
 // TODO 1. Reuse client, no need to re-create. Just SetImage for each
@@ -125,7 +124,7 @@ func OcrImages(commonDirs *config.CommonDirs) model.CliFunc {
 			}
 		}
 
-		waitChan := make(chan struct{}, MaxConversions)
+		waitChan := make(chan struct{}, constants.MaxConversions)
 		done := make(chan bool, len(imagePaths))
 		failed := make(chan string, len(imagePaths))
 		errs := make(chan error, len(imagePaths))

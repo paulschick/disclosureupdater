@@ -1,7 +1,7 @@
 package workerpool
 
 import (
-	"github.com/paulschick/disclosureupdater/logger"
+	"github.com/paulschick/disclosureupdater/common/logger"
 	"go.uber.org/zap"
 )
 

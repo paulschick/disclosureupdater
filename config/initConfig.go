@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/paulschick/disclosureupdater/logger"
-	"github.com/paulschick/disclosureupdater/util"
+	"github.com/paulschick/disclosureupdater/common/constants"
+	"github.com/paulschick/disclosureupdater/common/logger"
+	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
@@ -60,34 +61,34 @@ func (c *ConfigurationBuilder) initialize(ctx *cli.Context) {
 	}
 	imageFolderKey := c.profile + ".folders.imageFolder"
 	imageFolderValue := c.extractValue(ctx, "images", imageFolderKey,
-		path.Join(dataFolderValue, DefaultImageFolder))
+		path.Join(dataFolderValue, constants.DefaultImageFolder))
 	c.imageFolder = ConfigurationValue{
 		Key:   imageFolderKey,
 		Value: imageFolderValue,
 	}
 	disclosuresFolderKey := c.profile + ".folders.disclosuresFolder"
 	disclosuresFolderValue := c.extractValue(ctx, "disclosures", disclosuresFolderKey,
-		path.Join(dataFolderValue, DefaultDisclosuresFolder))
+		path.Join(dataFolderValue, constants.DefaultDisclosuresFolder))
 	c.disclosuresFolder = ConfigurationValue{
 		Key:   disclosuresFolderKey,
 		Value: disclosuresFolderValue,
 	}
 	ocrFolderKey := c.profile + ".folders.ocrFolder"
 	ocrFolderValue := c.extractValue(ctx, "ocr", ocrFolderKey,
-		path.Join(dataFolderValue, DefaultOcrFolder))
+		path.Join(dataFolderValue, constants.DefaultOcrFolder))
 	c.ocrFolder = ConfigurationValue{
 		Key:   ocrFolderKey,
 		Value: ocrFolderValue,
 	}
 	csvFolderKey := c.profile + ".folders.csvFolder"
 	csvFolderValue := c.extractValue(ctx, "csv", csvFolderKey,
-		path.Join(dataFolderValue, DefaultCsvFolder))
+		path.Join(dataFolderValue, constants.DefaultCsvFolder))
 	c.csvFolder = ConfigurationValue{
 		Key:   csvFolderKey,
 		Value: csvFolderValue,
 	}
 	s3FolderKey := c.profile + ".folders.s3Folder"
-	s3FolderValue := path.Join(dataFolderValue, DefaultS3Folder)
+	s3FolderValue := path.Join(dataFolderValue, constants.DefaultS3Folder)
 	c.s3Folder = ConfigurationValue{
 		Key:   s3FolderKey,
 		Value: s3FolderValue,
@@ -114,7 +115,7 @@ func (c *ConfigurationBuilder) createDirectories() error {
 		c.s3Folder.Value,
 	}
 	for _, dir := range dirs {
-		if err := util.TryCreateDirectories(dir); err != nil {
+		if err := methods.TryCreateDirectories(dir); err != nil {
 			return err
 		}
 	}
@@ -123,7 +124,7 @@ func (c *ConfigurationBuilder) createDirectories() error {
 
 // InitConfig creates the base directory and creates the config file
 func InitConfig() error {
-	if err := util.TryCreateDirectories(GetBaseFolder()); err != nil {
+	if err := methods.TryCreateDirectories(GetBaseFolder()); err != nil {
 		return err
 	}
 	v := viper.New()

@@ -2,11 +2,11 @@ package cmds
 
 import (
 	"fmt"
+	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/paulschick/disclosureupdater/common/paths"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/downloader"
 	"github.com/paulschick/disclosureupdater/model"
-	"github.com/paulschick/disclosureupdater/util"
 	"github.com/urfave/cli/v2"
 	"os"
 	"strings"
@@ -23,12 +23,12 @@ func DownloadUrlsCmd(commonDirs *config.CommonDirs) model.CliFunc {
 			printStrs[i] = url + ",\n"
 		}
 		fmt.Printf("Updating disclosures for the following URLs:\n%s\n", printStrs)
-		currentYear := util.CurrentYear()
+		currentYear := methods.CurrentYear()
 		fmt.Printf("Updating for current year %d if present\n", currentYear)
 		for i := 0; i < len(downloadUrls); i++ {
 			disclosureDownloads[i] = downloader.NewDisclosureDownload(downloadUrls[i], commonDirs.DataFolder)
 			urlYear := extractYearFromUrl(downloadUrls[i])
-			if urlYear == util.GetCurrentYearString() {
+			if urlYear == methods.GetCurrentYearString() {
 				fmt.Printf("URL with current year: %s\n", disclosureDownloads[i].Url)
 				zipPath := disclosureDownloads[i].ZipPath
 				xmlPath := disclosureDownloads[i].XmlPath
