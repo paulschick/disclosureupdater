@@ -1,50 +1,48 @@
 package config
 
 import (
-	"github.com/paulschick/disclosureupdater/common/constants"
-	"github.com/paulschick/disclosureupdater/common/logger"
 	"github.com/paulschick/disclosureupdater/common/methods"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli/v2"
-	"go.uber.org/zap"
 	"path"
 )
 
-type ConfigurationValue struct {
-	Key   string
-	Value string
-}
-
+// ConfigurationBuilder is used to build the configuration object on application startup.
+// This is responsible for creating the initial configuration directories and files,
+// then building the configuration object from the context and any existing configuration.
 type ConfigurationBuilder struct {
-	v                 *viper.Viper
-	profile           string
-	dataFolder        ConfigurationValue
-	disclosuresFolder ConfigurationValue
-	imageFolder       ConfigurationValue
-	ocrFolder         ConfigurationValue
-	csvFolder         ConfigurationValue
-	s3Folder          ConfigurationValue
+	v        *viper.Viper
+	profile  string
+	confKeys *ConfKeys
 }
 
+// NewConfigurationBuilder creates a new configuration builder used to configure
+// the CommonDirs object for use within various commands
 func NewConfigurationBuilder(profile string, ctx *cli.Context) (*ConfigurationBuilder, error) {
 	v, err := InitializeViper()
 	if err != nil {
 		return nil, err
 	}
 	builder := &ConfigurationBuilder{
-		v:       v,
-		profile: profile,
+		v:        v,
+		profile:  profile,
+		confKeys: BuildConfKeyMaps(profile),
 	}
-	builder.initialize(ctx)
+	for _, confKeyMap := range builder.confKeys.keyMap {
+		value := builder.extractValue(ctx, confKeyMap)
+		confKeyMap.currentVal = value
+	}
 	return builder, nil
 }
 
-func (c *ConfigurationBuilder) extractValue(ctx *cli.Context, ctxKey, configKey, defaultValue string) string {
-	value := ctx.String(ctxKey)
+// extractValue extracts the value from the context, then the configuration, then the default value
+// Used to build the full configuration object from the context and any existing configuration
+func (c *ConfigurationBuilder) extractValue(ctx *cli.Context, confKeyMap *ConfKeyMap) string {
+	value := ctx.String(confKeyMap.GetContextKey())
 	if value == "" {
-		value = c.v.GetString(configKey)
+		value = c.v.GetString(confKeyMap.GetConfigKey())
 		if value == "" {
-			value = defaultValue
+			value = confKeyMap.GetDefaultVal()
 		}
 	} else {
 		value = path.Join(GetDataFolder(), value)
@@ -52,69 +50,18 @@ func (c *ConfigurationBuilder) extractValue(ctx *cli.Context, ctxKey, configKey,
 	return value
 }
 
-func (c *ConfigurationBuilder) initialize(ctx *cli.Context) {
-	dataFolderKey := c.profile + ".folders.dataFolder"
-	dataFolderValue := GetDataFolder()
-	c.dataFolder = ConfigurationValue{
-		Key:   dataFolderKey,
-		Value: dataFolderValue,
-	}
-	imageFolderKey := c.profile + ".folders.imageFolder"
-	imageFolderValue := c.extractValue(ctx, "images", imageFolderKey,
-		path.Join(dataFolderValue, constants.DefaultImageFolder))
-	c.imageFolder = ConfigurationValue{
-		Key:   imageFolderKey,
-		Value: imageFolderValue,
-	}
-	disclosuresFolderKey := c.profile + ".folders.disclosuresFolder"
-	disclosuresFolderValue := c.extractValue(ctx, "disclosures", disclosuresFolderKey,
-		path.Join(dataFolderValue, constants.DefaultDisclosuresFolder))
-	c.disclosuresFolder = ConfigurationValue{
-		Key:   disclosuresFolderKey,
-		Value: disclosuresFolderValue,
-	}
-	ocrFolderKey := c.profile + ".folders.ocrFolder"
-	ocrFolderValue := c.extractValue(ctx, "ocr", ocrFolderKey,
-		path.Join(dataFolderValue, constants.DefaultOcrFolder))
-	c.ocrFolder = ConfigurationValue{
-		Key:   ocrFolderKey,
-		Value: ocrFolderValue,
-	}
-	csvFolderKey := c.profile + ".folders.csvFolder"
-	csvFolderValue := c.extractValue(ctx, "csv", csvFolderKey,
-		path.Join(dataFolderValue, constants.DefaultCsvFolder))
-	c.csvFolder = ConfigurationValue{
-		Key:   csvFolderKey,
-		Value: csvFolderValue,
-	}
-	s3FolderKey := c.profile + ".folders.s3Folder"
-	s3FolderValue := path.Join(dataFolderValue, constants.DefaultS3Folder)
-	c.s3Folder = ConfigurationValue{
-		Key:   s3FolderKey,
-		Value: s3FolderValue,
-	}
-}
-
+// build builds the configuration object and writes the Viper configuration file
 func (c *ConfigurationBuilder) build() error {
-	c.v.Set(c.dataFolder.Key, c.dataFolder.Value)
-	c.v.Set(c.imageFolder.Key, c.imageFolder.Value)
-	c.v.Set(c.disclosuresFolder.Key, c.disclosuresFolder.Value)
-	c.v.Set(c.ocrFolder.Key, c.ocrFolder.Value)
-	c.v.Set(c.csvFolder.Key, c.csvFolder.Value)
-	c.v.Set(c.s3Folder.Key, c.s3Folder.Value)
+	for _, confKeyMap := range c.confKeys.keyMap {
+		confKeyMap.SetViperValue(c.v)
+	}
 	return c.v.WriteConfig()
 }
 
+// createDirectories creates the directories specified in the configuration
+// if they don't already exist
 func (c *ConfigurationBuilder) createDirectories() error {
-	dirs := []string{
-		c.dataFolder.Value,
-		c.imageFolder.Value,
-		c.disclosuresFolder.Value,
-		c.ocrFolder.Value,
-		c.csvFolder.Value,
-		c.s3Folder.Value,
-	}
-	for _, dir := range dirs {
+	for _, dir := range c.confKeys.GetFolders() {
 		if err := methods.TryCreateDirectories(dir); err != nil {
 			return err
 		}
@@ -122,55 +69,20 @@ func (c *ConfigurationBuilder) createDirectories() error {
 	return nil
 }
 
-// InitConfig creates the base directory and creates the config file
-func InitConfig() error {
-	if err := methods.TryCreateDirectories(GetBaseFolder()); err != nil {
+// Build Creates directories and builds the configuration object
+func (c *ConfigurationBuilder) Build() error {
+	err := c.createDirectories()
+	if err != nil {
 		return err
 	}
-	v := viper.New()
-	v.SetConfigType("yaml")
-	v.SetConfigFile(path.Join(GetBaseFolder(), GetConfigFileName()))
-	if err := v.WriteConfig(); err != nil {
+	err = c.build()
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// ConfigureDirectories is run after the initial configuration has been created
-// this can be called to update the configuration with new values
-// Call this to get the up-to-date configuration
-func ConfigureDirectories(ctx *cli.Context) (*CommonDirs, error) {
-	log := logger.Logger
-
-	profile := ctx.String("profile")
-	if profile == "" {
-		profile = "default"
-	}
-
-	builder, err := NewConfigurationBuilder(profile, ctx)
-	if err != nil {
-		log.Error("Error initializing configuration builder", zap.Error(err))
-		return nil, err
-	}
-
-	err = builder.createDirectories()
-	if err != nil {
-		log.Error("Error creating directories", zap.Error(err))
-		return nil, err
-	}
-
-	err = builder.build()
-	if err != nil {
-		log.Error("Error writing configuration", zap.Error(err))
-		return nil, err
-	}
-
-	return &CommonDirs{
-		DataFolder:        builder.dataFolder.Value,
-		ImageFolder:       builder.imageFolder.Value,
-		DisclosuresFolder: builder.disclosuresFolder.Value,
-		OcrFolder:         builder.ocrFolder.Value,
-		CsvFolder:         builder.csvFolder.Value,
-		S3Folder:          builder.s3Folder.Value,
-	}, nil
+// GetCommonDirs wraps ConfKeys GetCommonDirs method
+func (c *ConfigurationBuilder) GetCommonDirs() *CommonDirs {
+	return c.confKeys.GetCommonDirs()
 }
