@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"github.com/paulschick/disclosureupdater/common/paths"
 	"github.com/paulschick/disclosureupdater/config"
 	"github.com/paulschick/disclosureupdater/downloader"
 	"github.com/paulschick/disclosureupdater/model"
@@ -26,10 +27,8 @@ func DownloadUrlsCmd(commonDirs *config.CommonDirs) model.CliFunc {
 		fmt.Printf("Updating for current year %d if present\n", currentYear)
 		for i := 0; i < len(downloadUrls); i++ {
 			disclosureDownloads[i] = downloader.NewDisclosureDownload(downloadUrls[i], commonDirs.DataFolder)
-			urlWithYear := strings.Split(disclosureDownloads[i].Url, "FD.zip")[0]
-			urlSplit := strings.Split(urlWithYear, "/")
-			urlYear := urlSplit[len(urlSplit)-1]
-			if urlYear == fmt.Sprintf("%d", currentYear) {
+			urlYear := extractYearFromUrl(downloadUrls[i])
+			if urlYear == util.GetCurrentYearString() {
 				fmt.Printf("URL with current year: %s\n", disclosureDownloads[i].Url)
 				zipPath := disclosureDownloads[i].ZipPath
 				xmlPath := disclosureDownloads[i].XmlPath
@@ -60,4 +59,10 @@ func DownloadUrlsCmd(commonDirs *config.CommonDirs) model.CliFunc {
 		}
 		return err
 	}
+}
+
+func extractYearFromUrl(url string) string {
+	var n string
+	n, _ = paths.FileAndExtension(url)
+	return strings.Replace(n, "FD", "", 1)
 }

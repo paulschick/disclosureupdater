@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/paulschick/disclosureupdater/common/paths"
 	"github.com/paulschick/disclosureupdater/model"
 	"github.com/paulschick/disclosureupdater/util"
 	"io"
@@ -45,12 +46,11 @@ type DisclosureDownload struct {
 }
 
 func NewDisclosureDownload(url, baseFolder string) *DisclosureDownload {
-	urlFileName := path.Base(url)
-	fileName := strings.Replace(urlFileName, ".zip", "", 1)
-	zipPath := path.Join(baseFolder, fmt.Sprintf("%s.zip", fileName))
+	fileName, fileExt := paths.FileAndExtension(url)
+	zipPath := path.Join(baseFolder, fmt.Sprintf("%s%s", fileName, fileExt))
 	xmlPath := path.Join(baseFolder, fmt.Sprintf("%s.xml", fileName))
 	csvPath := path.Join(baseFolder, fmt.Sprintf("%s.csv", fileName))
-	tempFilePath := path.Join(os.TempDir(), urlFileName)
+	tempFilePath := path.Join(os.TempDir(), fmt.Sprintf("%s%s", fileName, fileExt))
 	return &DisclosureDownload{
 		Url:          url,
 		FileName:     fileName,

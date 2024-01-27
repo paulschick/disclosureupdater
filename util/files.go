@@ -2,9 +2,7 @@ package util
 
 import (
 	"errors"
-	"github.com/paulschick/disclosureupdater/model"
 	"os"
-	"path"
 )
 
 func TryCreateDirectories(fp string) (err error) {
@@ -12,8 +10,4 @@ func TryCreateDirectories(fp string) (err error) {
 		err = os.MkdirAll(fp, os.ModePerm)
 	}
 	return err
-}
-
-func CreatePdfDownloadDirectory(dataFolder string) error {
-	return TryCreateDirectories(path.Join(dataFolder, model.BasePdfDir))
 }
