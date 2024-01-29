@@ -62,7 +62,7 @@ func BuildConfKeyMaps(profile string) *ConfKeys {
 	for k, v := range configKeys {
 		confKeys[i] = &ConfKeyMap{
 			contextKey: v,
-			configKey:  profile + "folders." + k,
+			configKey:  profile + ".folders." + k,
 			defaultVal: v,
 			currentVal: v,
 		}

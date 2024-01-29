@@ -19,6 +19,18 @@ type CommonDirs struct {
 	CsvFolder         string
 }
 
+func (c *CommonDirs) ToString() string {
+	return "CommonDirs{\n" +
+		"\tBaseFolder: " + c.BaseFolder + ",\n" +
+		"\tDataFolder: " + c.DataFolder + ",\n" +
+		"\tS3Folder: " + c.S3Folder + ",\n" +
+		"\tDisclosuresFolder: " + c.DisclosuresFolder + ",\n" +
+		"\tImageFolder: " + c.ImageFolder + ",\n" +
+		"\tOcrFolder: " + c.OcrFolder + ",\n" +
+		"\tCsvFolder: " + c.CsvFolder + ",\n" +
+		"}"
+}
+
 func NewCommonDirsFromCtx(c *cli.Context) *CommonDirs {
 	dataFolder := GetDataFolder()
 	imagesFolder := c.String("images")

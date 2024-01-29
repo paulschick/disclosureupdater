@@ -37,12 +37,13 @@ func NewConfigurationBuilder(profile string, ctx *cli.Context) (*ConfigurationBu
 
 // extractValue extracts the value from the context, then the configuration, then the default value
 // Used to build the full configuration object from the context and any existing configuration
+// TODO - Need to determine if a non-empty value is a path or not. If it's not a path, create the path.
 func (c *ConfigurationBuilder) extractValue(ctx *cli.Context, confKeyMap *ConfKeyMap) string {
 	value := ctx.String(confKeyMap.GetContextKey())
 	if value == "" {
 		value = c.v.GetString(confKeyMap.GetConfigKey())
 		if value == "" {
-			value = confKeyMap.GetDefaultVal()
+			value = path.Join(GetDataFolder(), confKeyMap.GetDefaultVal())
 		}
 	} else {
 		value = path.Join(GetDataFolder(), value)

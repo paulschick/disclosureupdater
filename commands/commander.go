@@ -21,6 +21,24 @@ type Commander struct {
 	commonDirs  *config.CommonDirs
 }
 
+func NewCommander(context *cli.Context) *Commander {
+	cmd := &Commander{}
+	cmd.init(context)
+	return cmd
+}
+
+func (c *Commander) GetProfile() string {
+	return c.profile
+}
+
+func (c *Commander) GetCommonDirs() *config.CommonDirs {
+	return c.commonDirs
+}
+
+func (c *Commander) GetLogger() *zap.Logger {
+	return c.log
+}
+
 // init Initializes the commander
 // This can be run with a set of cli flags that will configure the environment.
 // The program uses a default folder and configuration file location to store any modified values.
@@ -67,10 +85,10 @@ func (c *Commander) initConfig(cc *cli.Context) error {
 	return nil
 }
 
-// cleanup is run after the command has completed
+// Cleanup is run after the command has completed
 // This will sync the logger and perform any other cleanup tasks.
 // If an error occurred during the command, it will be logged.
-func (c *Commander) cleanup() {
+func (c *Commander) Cleanup() {
 	_ = c.log.Sync()
 }
 
